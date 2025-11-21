@@ -97,3 +97,4 @@ credentials.json
 98 .pm2/
 99 npm-debug.log
 100 pm2-debug.log
+/src/generated/prisma
