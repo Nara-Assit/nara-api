@@ -24,9 +24,19 @@ if (result.error) {
 export interface Config {
   PORT: number;
   NODE_ENV: string;
+  ACCESS_TOKEN_SECRET: string;
+  REFRESH_TOKEN_SECRET: string;
+  ACCESS_TOKEN_EXPIRY: number;
+  REFRESH_TOKEN_EXPIRY: number;
+  OTP_CODE_EXPIRY: number;
 }
 
 export const config: Config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || '',
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || '',
+  ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900000', 10),
+  REFRESH_TOKEN_EXPIRY: parseInt(process.env.REFRESH_TOKEN_EXPIRY || '2592000000', 10),
+  OTP_CODE_EXPIRY: parseInt(process.env.OTP_CODE_EXPIRY || '900000', 10),
 };

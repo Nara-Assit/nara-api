@@ -2,6 +2,11 @@ import express from 'express';
 import type { Application, Request, Response } from 'express';
 import { config } from './config/config.js';
 import morgan from 'morgan';
+import errorMiddleware from './middleware/errorMiddleware.js';
+import authRouter from './routes/authRouter.js';
+import notFoundMiddleware from './middleware/notFoundMiddleware.js';
+import { verifyToken } from './middleware/authMiddleware.js';
+import userRouter from './routes/userRouter.js';
 
 const app: Application = express();
 if (config.NODE_ENV === 'development') {
@@ -19,4 +24,13 @@ app.get('/api/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use('/api/auth', authRouter);
+
+// Protected routes
+app.use('/api/users', verifyToken, userRouter);
+
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
+
 export default app;
