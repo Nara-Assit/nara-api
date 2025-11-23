@@ -9,25 +9,52 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 enum RoleType {
-  DEAF       
-  COCHLEAR   
-  PARENT     
-  SPECIALIST 
+  DEAF
+  COCHLEAR
+  PARENT
+  SPECIALIST
 }
 
 model User {
-  id               Int       @id @default(autoincrement())
-  fullName         String    @db.VarChar(50)
-  profileImageUrl  String?   @db.VarChar(255)
-  email            String?   @unique @db.VarChar(255)
-  phoneNumber      String?   @unique @db.VarChar(15)
-  passwordHash     String    @db.VarChar(255)
-  role             RoleType
+  id              Int            @id @default(autoincrement())
+  name            String         @db.VarChar(50)
+  profileImageUrl String?        @db.VarChar(255)
+  email           String         @unique @db.VarChar(255)
+  phoneNumber     String?        @unique @db.VarChar(11)
+  passwordHash    String         @db.VarChar(255)
+  createdAt       DateTime       @default(now())
+  isVerified      Boolean        @default(false)
+  role            RoleType
+  refreshTokens   RefreshToken[]
+  otpCodes        OtpCode[]
 }
 
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model OtpCode {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@index([userId])
+}
