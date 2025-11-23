@@ -33,12 +33,14 @@ model User {
   role            RoleType
   refreshTokens   RefreshToken[]
   otpCodes        OtpCode[]
+
+  @@index([email])
 }
 
 model RefreshToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -50,7 +52,7 @@ model RefreshToken {
 model OtpCode {
   id        Int      @id @default(autoincrement())
   code      String   @unique
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
   expiresAt DateTime
   createdAt DateTime @default(now())

@@ -1,14 +1,15 @@
 import { config } from '../config/config.js';
 import prisma from '../db.js';
 
-export const createRefreshToken = async (generatedToken: string, userId: number) =>
-  prisma.refreshToken.create({
+export const createRefreshToken = async (generatedToken: string, userId: number) => {
+  await prisma.refreshToken.create({
     data: {
       token: generatedToken,
       userId,
       expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_EXPIRY),
     },
   });
+};
 
 export const getRefreshToken = async (token: string) =>
   await prisma.refreshToken.findUnique({

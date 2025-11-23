@@ -41,7 +41,13 @@ const authController = {
 
       await createRefreshToken(refreshToken, loggedInUser.id);
 
-      return res.status(200).json({ message: 'Login successful', accessToken, refreshToken });
+      const { passwordHash: _, ...userWithoutPassword } = loggedInUser;
+      return res.status(200).json({
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        user: userWithoutPassword,
+      });
     } catch (error) {
       next(error);
     }
@@ -64,13 +70,13 @@ const authController = {
 
       // generate OTP code for account verification and store it in DB
       const otpCode = generateOtp();
-      console.log(config.OTP_CODE_EXPIRY);
-      console.log(new Date(Date.now() + config.OTP_CODE_EXPIRY));
-      await createOtpCode(otpCode, createdUser.id, new Date(Date.now() + config.OTP_CODE_EXPIRY));
+      await createOtpCode(otpCode, createdUser.id);
 
       // TODO: Send OTP code to user's email
 
-      return res.status(201).json({ message: 'User registered successfully', user: createdUser });
+      return res
+        .status(201)
+        .json({ message: 'User registered successfully', user: { id: createdUser.id } });
     } catch (error) {
       next(error);
     }
@@ -130,7 +136,6 @@ const authController = {
     }
   },
   verifyUser: async (req: Request, res: Response, next: NextFunction) => {
-    // assuming verification is always successful for now
     try {
       const { otpCode, userId } = req.body;
 
@@ -142,7 +147,8 @@ const authController = {
       ) {
         return res.status(400).json({ error: 'Invalid or expired OTP code' });
       }
-      await updateUser(userId, { isVerified: true });
+      const verifiedUser: User = await updateUser(userId, { isVerified: true });
+      const { passwordHash: _, ...userWithoutPassword } = verifiedUser;
 
       const payload = { userId };
       const accessToken = jwt.sign(payload, config.ACCESS_TOKEN_SECRET, {
@@ -154,9 +160,12 @@ const authController = {
 
       await createRefreshToken(refreshToken, userId);
 
-      return res
-        .status(201)
-        .json({ message: 'User verified successfully', accessToken, refreshToken });
+      return res.status(201).json({
+        message: 'User verified successfully',
+        accessToken,
+        refreshToken,
+        user: userWithoutPassword,
+      });
     } catch (error) {
       return next(error);
     }
