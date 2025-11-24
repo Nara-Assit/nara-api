@@ -1,10 +1,11 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Response, NextFunction } from 'express';
 import { getUserById } from '../repositories/userRepo.js';
+import type { AuthRequest } from '../types/express.js';
 
 const userController = {
-  getUserById: async (req: Request, res: Response, next: NextFunction) => {
+  getUserById: async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = parseInt(req.params.id!, 10);
+      const userId = parseInt(req.userId!, 10);
       const user = await getUserById(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });

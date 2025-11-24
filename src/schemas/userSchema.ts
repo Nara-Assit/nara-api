@@ -21,7 +21,7 @@ export type LoginUserBody = Pick<User, 'email'> & {
 };
 
 export const verifyUserSchema = z.object({
-  otpCode: z.string().length(6, 'OTP code must be 6 digits'),
-  userId: z.number(),
+  otpCode: z.string(),
+  email: z.email('Invalid email'),
 });
 export type VerifyUserBody = z.infer<typeof verifyUserSchema>;

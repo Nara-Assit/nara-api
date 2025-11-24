@@ -12,6 +12,7 @@ import {
 } from '../repositories/refreshTokenRepo.js';
 import generateOtp from '../util/generateOtp.js';
 import { createOtpCode, getMostRecentOtpCodeByUserId } from '../repositories/otpCodeRepo.js';
+import { sendEmail } from '../util/email.js';
 
 const authController = {
   login: async (req: Request, res: Response, next: NextFunction) => {
@@ -61,14 +62,6 @@ const authController = {
       const { password, ...userData } = user;
       const passwordHash = await bcrypt.hash(password, salt);
       const createdUser: User = await createUser({ ...userData, passwordHash });
-
-      // generate OTP code for account verification and store it in DB
-      const otpCode = generateOtp();
-      console.log(config.OTP_CODE_EXPIRY);
-      console.log(new Date(Date.now() + config.OTP_CODE_EXPIRY));
-      await createOtpCode(otpCode, createdUser.id, new Date(Date.now() + config.OTP_CODE_EXPIRY));
-
-      // TODO: Send OTP code to user's email
 
       return res.status(201).json({ message: 'User registered successfully', user: createdUser });
     } catch (error) {
@@ -130,19 +123,38 @@ const authController = {
     }
   },
   verifyUser: async (req: Request, res: Response, next: NextFunction) => {
-    // assuming verification is always successful for now
     try {
-      const { otpCode, userId } = req.body;
+      const { otpCode, email } = req.body;
+
+      if (!email || !otpCode) {
+        return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+      }
+
+      const user = await getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+      if (user.isVerified) {
+        return res.status(200).json({ success: true, message: 'Email already verified' });
+      }
+      const userId = user.id;
 
       const storedOtpCode = await getMostRecentOtpCodeByUserId(userId);
-      if (
-        !storedOtpCode ||
-        storedOtpCode.code !== otpCode ||
-        storedOtpCode.expiresAt < new Date()
-      ) {
+
+      if (!storedOtpCode || storedOtpCode.expiresAt < new Date()) {
         return res.status(400).json({ error: 'Invalid or expired OTP code' });
       }
+
+      const otpMatch = await bcrypt.compare(otpCode, storedOtpCode.code);
+      if (!otpMatch) {
+        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+      }
+
       await updateUser(userId, { isVerified: true });
+
+      // **Security Review: OTP Cleanup**
+      // 1. Should we **immediately delete all OTPs** associated with this user upon successful verification?
+      // 2. What is the cleanup strategy for **unverified users' stale/expired OTPs**?
 
       const payload = { userId };
       const accessToken = jwt.sign(payload, config.ACCESS_TOKEN_SECRET, {
@@ -157,6 +169,47 @@ const authController = {
       return res
         .status(201)
         .json({ message: 'User verified successfully', accessToken, refreshToken });
+    } catch (error) {
+      return next(error);
+    }
+  },
+  resendEmailVerificationOtp: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body as { email?: string };
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const createdUser = await getUserByEmail(email);
+
+      if (!createdUser) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+      if (createdUser.isVerified) {
+        return res.status(200).json({ success: true, message: 'Email already verified' });
+      }
+
+      const emailOtp = generateOtp();
+      const emailOtpHash = await bcrypt.hash(emailOtp, 10);
+
+      await createOtpCode(
+        emailOtpHash,
+        createdUser.id,
+        new Date(Date.now() + config.OTP_CODE_EXPIRY)
+      );
+      const message = `Welcome to Volt!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
+      try {
+        await sendEmail({
+          email: createdUser.email,
+          subject: 'Verify Your Volt Account',
+          message,
+        });
+        return res.json({ success: true, message: 'Verification code sent' });
+      } catch (_err) {
+        return res
+          .status(500)
+          .json({ success: false, message: 'Failed to send verification code' });
+      }
     } catch (error) {
       return next(error);
     }
