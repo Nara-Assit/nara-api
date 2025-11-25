@@ -33,6 +33,11 @@ model User {
   role            RoleType
   refreshTokens   RefreshToken[]
   otpCodes        OtpCode[]
+  notifications   Notification[]
+  fcmTokens       FcmToken[]
+
+  @@index([id])
+  @@index([email])
 }
 
 model RefreshToken {
@@ -56,5 +61,28 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([code])
+  @@index([userId])
+}
+
+model FcmToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  title     String   @db.VarChar(100)
+  message   String   @db.VarChar(255)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }
