@@ -29,6 +29,11 @@ export interface Config {
   ACCESS_TOKEN_EXPIRY: number;
   REFRESH_TOKEN_EXPIRY: number;
   OTP_CODE_EXPIRY: number;
+  EMAIL_HOST: string;
+  EMAIL_PORT: string;
+  EMAIL_USERNAME: string;
+  EMAIL_PASSWORD: string;
+  EMAIL_FROM: string;
 }
 
 export const config: Config = {
@@ -39,4 +44,9 @@ export const config: Config = {
   ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900000', 10),
   REFRESH_TOKEN_EXPIRY: parseInt(process.env.REFRESH_TOKEN_EXPIRY || '2592000000', 10),
   OTP_CODE_EXPIRY: parseInt(process.env.OTP_CODE_EXPIRY || '900000', 10),
+  EMAIL_HOST: process.env.EMAIL_HOST!,
+  EMAIL_PORT: process.env.EMAIL_PORT!,
+  EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD!,
+  EMAIL_FROM: process.env.EMAIL_FROM!,
 };

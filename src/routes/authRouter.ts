@@ -7,6 +7,7 @@ const authRouter = Router();
 
 authRouter.post('/login', validateData(loginUserSchema), authController.login);
 authRouter.post('/register', validateData(createUserSchema), authController.register);
+authRouter.post('/resend-verification-otp', authController.resendEmailVerificationOtp);
 authRouter.post('/logout', authController.logout);
 authRouter.post('/refresh', authController.refresh);
 
