@@ -1,15 +1,15 @@
 import type { NotificationType } from '@prisma/client';
 
-export interface BackgroundNotification {
-  data?: Record<string, string>;
+export interface ForegroundNotification {
+  data: {
+    notificationType: NotificationType;
+    [key: string]: string;
+  };
+}
+
+export interface BackgroundNotification extends ForegroundNotification {
   notification: {
     title: string;
     body: string;
   };
-  notificationType: NotificationType;
-}
-
-export interface ForegroundNotification {
-  data: Record<string, string>;
-  notificationType: NotificationType;
 }

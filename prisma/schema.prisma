@@ -86,8 +86,7 @@ model FcmToken {
 model Notification {
   id                Int                @id @default(autoincrement())
   users             User[]
-  type              NotificationType
-  data              Json
+  payload           Json
   createdAt         DateTime           @default(now())
   userNotifications UserNotification[]
 }

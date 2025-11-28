@@ -10,7 +10,11 @@ const notificationMessage = {
     title: 'Test Notification',
     body: 'This is a test background notification sent from the server.',
   },
-  notificationType: NotificationType.SYSTEM,
+  data: {
+    notificationType: NotificationType.SYSTEM,
+    key1: 'value1',
+    key2: 'value2',
+  },
 };
 try {
   await sendBackgroundNotification(notificationMessage, userIds);

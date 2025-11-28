@@ -8,16 +8,9 @@ export const createNotificationForUsers = async (
   notification: ForegroundNotification | BackgroundNotification,
   userIds: [number, ...number[]]
 ) => {
-  const notificationData = notification.data ?? {};
-  if ('notification' in notification) {
-    notificationData.title = notification.notification.title;
-    notificationData.body = notification.notification.body;
-  }
-
   await prisma.notification.create({
     data: {
-      data: notificationData,
-      type: notification.notificationType,
+      payload: { ...notification },
       userNotifications: {
         create: userIds.map((id) => ({ userId: id })),
       },
@@ -38,7 +31,7 @@ export const getNotificationsByUserId = async (userId: number, page: number, lim
     select: { notification: true, read: true, userId: true },
   });
 
-  return notifications;
+  return notifications.map((n) => ({ ...n.notification, read: n.read }));
 };
 
 export const countUnreadNotifications = async (userId: number) => {
