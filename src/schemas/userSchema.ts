@@ -27,8 +27,22 @@ export type LoginUserBody = Pick<User, 'email'> & {
   password: string;
 };
 
-export const verifyUserSchema = z.object({
+export const verifyOtpSchema = z.object({
   otpCode: z.string(),
   email: z.email('Invalid email'),
 });
-export type VerifyUserBody = z.infer<typeof verifyUserSchema>;
+export type VerifyOtpBody = z.infer<typeof verifyOtpSchema>;
+
+export const forgotPasswordSchema = z.object({ email: z.email('Invalid email') });
+export type forgotPasswordBody = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Confirm Password must be at least 6 characters'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords must match',
+    path: ['confirmPassword'],
+  });
+export type resetPasswordBody = z.infer<typeof resetPasswordSchema>;
