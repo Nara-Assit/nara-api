@@ -1,23 +1,20 @@
 import type { User } from '@prisma/client';
 import prisma from '../db.js';
-import type { RegisterUserBody } from '../schemas/userSchema.js';
+import type { CreateUserData } from '../schemas/userSchema.js';
 
 export const getUserById = async (id: number) => {
-  return await prisma.user.findUnique({ where: { id } });
+  const user = await prisma.user.findUnique({ where: { id } });
+  return user;
 };
 
 export const getUserByEmail = async (email: string) => {
-  return await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email } });
+  return user;
 };
 
-export const createUser = async (data: {
-  name: string;
-  email: string;
-  phoneNumber?: string | null;
-  passwordHash: string;
-  role: RegisterUserBody['role'];
-}) => {
-  return await prisma.user.create({ data });
+export const createUser = async (data: CreateUserData) => {
+  const createdUser = await prisma.user.create({ data });
+  return createdUser;
 };
 
 export const updateUser = async (id: number, data: Partial<User>) => {

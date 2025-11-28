@@ -1,6 +1,5 @@
-import { NotificationType } from '@prisma/client';
 import { sendForegroundNotification } from '../services/notificationService.js';
-import type { ForegroundNotification } from '../types/NotificationMessage.js';
+import { NotificationType, type ForegroundNotification } from '../types/NotificationMessage.js';
 
 // This registration token comes from the client FCM SDKs.
 

@@ -3,7 +3,7 @@ import { createUser, getUserByEmail, updateUser } from '../repositories/userRepo
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { config } from '../config/config.js';
-import { Prisma, type User } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { LoginUserBody, RegisterUserBody } from '../schemas/userSchema.js';
 import {
   createRefreshToken,
@@ -40,9 +40,15 @@ const authController = {
         expiresIn: config.REFRESH_TOKEN_EXPIRY,
       });
 
+      // Store refresh token in the database
       await createRefreshToken(refreshToken, loggedInUser.id);
 
-      return res.status(200).json({ message: 'Login successful', accessToken, refreshToken });
+      // remove sensitive info before sending user data
+      const { passwordHash: _, ...publicUser } = loggedInUser;
+
+      return res
+        .status(200)
+        .json({ message: 'Login successful', accessToken, refreshToken, user: publicUser });
     } catch (error) {
       next(error);
     }
@@ -61,9 +67,37 @@ const authController = {
       const salt = 10;
       const { password, ...userData } = user;
       const passwordHash = await bcrypt.hash(password, salt);
-      const createdUser: User = await createUser({ ...userData, passwordHash });
+      const createdUser = await createUser({ ...userData, passwordHash });
 
-      return res.status(201).json({ message: 'User registered successfully', user: createdUser });
+      // Generate and store OTP code for email verification
+      const emailOtp = generateOtp();
+      const emailOtpHash = await bcrypt.hash(emailOtp, 10);
+      await createOtpCode(
+        emailOtpHash,
+        createdUser.id,
+        new Date(Date.now() + config.OTP_CODE_EXPIRY)
+      );
+
+      // Send verification email
+      const message = `Welcome to Nara!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
+      try {
+        await sendEmail({
+          email: createdUser.email,
+          subject: 'Verify Your Nara Account',
+          message,
+        });
+      } catch (_err) {
+        return res
+          .status(500)
+          .json({ success: false, message: 'Failed to send verification code' });
+      }
+
+      const { passwordHash: _, ...publicUser } = createdUser;
+
+      return res.status(201).json({
+        message: 'User registered successfully',
+        user: publicUser,
+      });
     } catch (error) {
       next(error);
     }
@@ -152,10 +186,6 @@ const authController = {
 
       await updateUser(userId, { isVerified: true });
 
-      // **Security Review: OTP Cleanup**
-      // 1. Should we **immediately delete all OTPs** associated with this user upon successful verification?
-      // 2. What is the cleanup strategy for **unverified users' stale/expired OTPs**?
-
       const payload = { userId };
       const accessToken = jwt.sign(payload, config.ACCESS_TOKEN_SECRET, {
         expiresIn: config.ACCESS_TOKEN_EXPIRY,
@@ -166,9 +196,11 @@ const authController = {
 
       await createRefreshToken(refreshToken, userId);
 
-      return res
-        .status(201)
-        .json({ message: 'User verified successfully', accessToken, refreshToken });
+      return res.status(201).json({
+        message: 'User verified successfully',
+        accessToken,
+        refreshToken,
+      });
     } catch (error) {
       return next(error);
     }
@@ -197,11 +229,11 @@ const authController = {
         createdUser.id,
         new Date(Date.now() + config.OTP_CODE_EXPIRY)
       );
-      const message = `Welcome to Volt!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
+      const message = `Welcome to Nara!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
       try {
         await sendEmail({
           email: createdUser.email,
-          subject: 'Verify Your Volt Account',
+          subject: 'Verify Your Nara Account',
           message,
         });
         return res.json({ success: true, message: 'Verification code sent' });

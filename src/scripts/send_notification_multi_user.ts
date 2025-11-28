@@ -1,6 +1,5 @@
-import { NotificationType } from '@prisma/client';
 import { sendBackgroundNotification } from '../services/notificationService.js';
-
+import { NotificationType } from '../types/NotificationMessage.js';
 // This registration token comes from the client FCM SDKs.
 
 const userIds: [number, ...number[]] = [1, 2];

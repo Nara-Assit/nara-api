@@ -1,4 +1,9 @@
-import type { NotificationType } from '@prisma/client';
+export enum NotificationType {
+  CHAT = 'CHAT',
+  SYSTEM = 'SYSTEM',
+  SESSION = 'SESSION',
+  TRAINING = 'TRAINING',
+}
 
 export interface ForegroundNotification {
   data: {
