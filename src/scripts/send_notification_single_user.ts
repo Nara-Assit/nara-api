@@ -1,19 +1,19 @@
-import { NotificationType } from '@prisma/client';
-import { sendBackgroundNotification } from '../services/notificationService.js';
+import { sendForegroundNotification } from '../services/notificationService.js';
+import { NotificationType, type ForegroundNotification } from '../types/NotificationMessage.js';
 
 // This registration token comes from the client FCM SDKs.
 
 const userId = 1;
 
-const notificationMessage = {
-  notification: {
-    title: 'Test Notification',
-    body: 'This is a test background notification sent from the server.',
+const notificationMessage: ForegroundNotification = {
+  data: {
+    key1: 'value1',
+    key2: 'value2',
+    notificationType: NotificationType.SYSTEM,
   },
-  notificationType: NotificationType.SYSTEM,
 };
 try {
-  await sendBackgroundNotification(notificationMessage, [userId]);
+  await sendForegroundNotification(notificationMessage, [userId]);
 } catch (error) {
   console.error('Error sending notification:', error);
 }

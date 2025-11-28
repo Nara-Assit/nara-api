@@ -60,13 +60,9 @@ async function sendFcmNotification(
   fcmTokensStrings: string[]
 ) {
   const fcmMessage: MulticastMessage = {
+    ...notification,
     tokens: fcmTokensStrings,
   };
-
-  fcmMessage.data = notification.data ?? {};
-  if ('notification' in notification) {
-    fcmMessage.notification = notification.notification;
-  }
 
   const result = await firebase.messaging().sendEachForMulticast(fcmMessage);
   return result;

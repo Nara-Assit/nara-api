@@ -4,13 +4,20 @@ import { z } from 'zod';
 export const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.email('Invalid email'),
-  phoneNumber: z.string().length(11, 'Phone number must be 11 digits').optional(),
+  phoneNumber: z.string().min(11).max(15).optional(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['DEAF', 'COCHLEAR', 'PARENT', 'SPECIALIST']),
+  role: z.enum(['DEAF', 'COCHLEAR_IMPLANT', 'PARENT', 'SPECIALIST', 'DOCTOR', 'MUTE']),
+  country: z.string().max(50),
+  age: z.number().min(3).max(120),
+  closeContactNumber: z.string().min(11).max(15),
 });
-export type RegisterUserBody = Pick<User, 'name' | 'email' | 'phoneNumber' | 'role'> & {
+export type RegisterUserBody = Pick<
+  User,
+  'name' | 'email' | 'phoneNumber' | 'role' | 'country' | 'age' | 'closeContactNumber'
+> & {
   password: string;
 };
+export type CreateUserData = Omit<RegisterUserBody, 'password'> & { passwordHash: string };
 
 export const loginUserSchema = z.object({
   email: z.email('Invalid email'),
