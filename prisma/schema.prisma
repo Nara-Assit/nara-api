@@ -23,6 +23,13 @@ enum RoleType {
   DOCTOR
 }
 
+enum NotificationType {
+  SYSTEM
+  CHAT
+  SESSION
+  TRAINING
+}
+
 model User {
   id                 Int                @id @default(autoincrement())
   name               String             @db.VarChar(50)
