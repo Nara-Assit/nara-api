@@ -6,7 +6,7 @@ export const sendEmail = async (options: { email: string; subject: string; messa
   const transporter = nodemailer.createTransport({
     host: config.EMAIL_HOST,
     port: parseInt(config.EMAIL_PORT, 10),
-    secure: parseInt(config.EMAIL_PORT, 10) === 465,
+    secure: false,
     auth: {
       user: config.EMAIL_USERNAME,
       pass: config.EMAIL_PASSWORD,
