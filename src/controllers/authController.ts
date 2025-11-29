@@ -334,7 +334,7 @@ const authController = {
       const { password }: resetPasswordBody = req.body;
       let userId;
       try {
-        const payload = jwt.verify(token, config.ACCESS_TOKEN_SECRET) as JwtPayload;
+        const payload = jwt.verify(token, config.RESET_TOKEN_SECRET) as JwtPayload;
         userId = parseInt(payload.userId!, 10);
       } catch (error) {
         console.error('Token verification failed:', error);
