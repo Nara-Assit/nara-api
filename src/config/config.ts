@@ -34,6 +34,9 @@ export interface Config {
   EMAIL_USERNAME: string;
   EMAIL_PASSWORD: string;
   EMAIL_FROM: string;
+  SMS_API_TOKEN: string;
+  SMS_API_URL: string;
+  SMS_FROM: string;
 }
 
 export const config: Config = {
@@ -49,4 +52,7 @@ export const config: Config = {
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD!,
   EMAIL_FROM: process.env.EMAIL_FROM!,
+  SMS_API_TOKEN: process.env.SMS_API_TOKEN!,
+  SMS_API_URL: process.env.SMS_API_URL!,
+  SMS_FROM: process.env.SMS_FROM || 'NARA',
 };
