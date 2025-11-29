@@ -30,6 +30,11 @@ enum NotificationType {
   TRAINING
 }
 
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 model User {
   id                 Int                @id @default(autoincrement())
   name               String             @db.VarChar(50)
@@ -70,11 +75,12 @@ model OtpCode {
   code      String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
+  type   OtpType
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([code])
-  @@index([userId])
+  @@index([userId,type])
 }
 
 model FcmToken {

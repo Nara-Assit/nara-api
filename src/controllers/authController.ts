@@ -1,10 +1,16 @@
 import type { Request, Response, NextFunction } from 'express';
-import { createUser, getUserByEmail, updateUser } from '../repositories/userRepo.js';
+import { createUser, getUserByEmail, getUserById, updateUser } from '../repositories/userRepo.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { config } from '../config/config.js';
 import { Prisma } from '@prisma/client';
-import type { LoginUserBody, RegisterUserBody } from '../schemas/userSchema.js';
+import type {
+  LoginUserBody,
+  RegisterUserBody,
+  VerifyOtpBody,
+  forgotPasswordBody,
+  resetPasswordBody,
+} from '../schemas/userSchema.js';
 import {
   createRefreshToken,
   deleteRefreshToken,
@@ -13,6 +19,7 @@ import {
 import generateOtp from '../util/generateOtp.js';
 import { createOtpCode, getMostRecentOtpCodeByUserId } from '../repositories/otpCodeRepo.js';
 import { sendEmail } from '../util/email.js';
+import type { JwtPayload } from '../types/jwt-payload.js';
 
 const authController = {
   login: async (req: Request, res: Response, next: NextFunction) => {
@@ -75,6 +82,7 @@ const authController = {
       await createOtpCode(
         emailOtpHash,
         createdUser.id,
+        'EMAIL_VERIFICATION',
         new Date(Date.now() + config.OTP_CODE_EXPIRY)
       );
 
@@ -158,11 +166,7 @@ const authController = {
   },
   verifyUser: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { otpCode, email } = req.body;
-
-      if (!email || !otpCode) {
-        return res.status(400).json({ success: false, message: 'Email and OTP are required' });
-      }
+      const { otpCode, email }: VerifyOtpBody = req.body;
 
       const user = await getUserByEmail(email);
       if (!user) {
@@ -173,7 +177,7 @@ const authController = {
       }
       const userId = user.id;
 
-      const storedOtpCode = await getMostRecentOtpCodeByUserId(userId);
+      const storedOtpCode = await getMostRecentOtpCodeByUserId(userId, 'EMAIL_VERIFICATION');
 
       if (!storedOtpCode || storedOtpCode.expiresAt < new Date()) {
         return res.status(400).json({ error: 'Invalid or expired OTP code' });
@@ -227,6 +231,7 @@ const authController = {
       await createOtpCode(
         emailOtpHash,
         createdUser.id,
+        'EMAIL_VERIFICATION',
         new Date(Date.now() + config.OTP_CODE_EXPIRY)
       );
       const message = `Welcome to Nara!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
@@ -246,6 +251,113 @@ const authController = {
       return next(error);
     }
   },
-};
+  forgotPassword: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email }: forgotPasswordBody = req.body;
 
+      const user = await getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+      const otp: string = generateOtp();
+
+      const emailOtpHash = await bcrypt.hash(otp, 10);
+      await createOtpCode(
+        emailOtpHash,
+        user.id,
+        'PASSWORD_RESET',
+        new Date(Date.now() + config.OTP_CODE_EXPIRY)
+      );
+
+      const message =
+        `You requested to reset your password.\n\n` +
+        `Your password reset code is: ${otp}\n\n` +
+        `This code will expire in 10 minutes. Please enter this code in the password reset form to create a new password.\n\n` +
+        `If you didn't request this password reset, please ignore this email and your password will remain unchanged.`;
+
+      try {
+        await sendEmail({
+          email,
+          subject: 'Your password reset token (valid for 10 minutes)',
+          message,
+        });
+        return res.json({ success: true, message: 'OTP sent to email' });
+      } catch (_err) {
+        return res.status(500).json({ success: false, message: 'Sent OTP to email error:' });
+      }
+    } catch (error) {
+      return next(error);
+    }
+  },
+  verifyPasswordResetOtp: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, otpCode }: VerifyOtpBody = req.body;
+      const user = await getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      const userId = user.id;
+      const storedOtpCode = await getMostRecentOtpCodeByUserId(userId, 'PASSWORD_RESET');
+
+      if (!storedOtpCode || storedOtpCode.expiresAt < new Date()) {
+        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+      }
+      const otpMatch = await bcrypt.compare(otpCode, storedOtpCode.code);
+      if (!otpMatch) {
+        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+      }
+
+      const payload = { userId: user.id };
+      const resetToken = jwt.sign(payload, config.RESET_TOKEN_SECRET, {
+        expiresIn: '5m',
+      });
+
+      return res.status(201).json({
+        message: 'OTP verified successfully',
+        resetToken,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+  resetPassword: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Reset token is required',
+        });
+      }
+
+      const { password }: resetPasswordBody = req.body;
+      let userId;
+      try {
+        const payload = jwt.verify(token, config.RESET_TOKEN_SECRET) as JwtPayload;
+        userId = parseInt(payload.userId!, 10);
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        return res.status(401).json({ error: `Failed to verify token` });
+      }
+
+      const user = await getUserById(userId);
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired reset token',
+        });
+      }
+      const passwordHash = await bcrypt.hash(password, 10);
+      await updateUser(userId, { passwordHash });
+
+      return res.status(201).json({
+        message: 'Password reset successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+};
 export default authController;
