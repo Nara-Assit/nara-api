@@ -10,7 +10,8 @@ const userController = {
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      return res.status(200).json({ user });
+      const { passwordHash: _, ...publicUser } = user;
+      return res.status(200).json({ user: publicUser });
     } catch (error) {
       next(error);
     }

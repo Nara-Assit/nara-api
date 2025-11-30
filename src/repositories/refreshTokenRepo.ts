@@ -1,12 +1,13 @@
 import { config } from '../config/config.js';
 import prisma from '../db.js';
+import expiryToDate from '../util/expiryToDate.js';
 
 export const createRefreshToken = async (generatedToken: string, userId: number) =>
   prisma.refreshToken.create({
     data: {
       token: generatedToken,
       userId,
-      expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_EXPIRY),
+      expiresAt: expiryToDate(config.REFRESH_TOKEN_EXPIRY),
     },
   });
 
