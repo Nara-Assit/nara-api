@@ -1,20 +1,23 @@
 import { config } from '../config/config.js';
-import prisma from '../db.js';
 import expiryToDate from '../util/expiryToDate.js';
+import prisma from '../db.js';
+import { OtpType } from '@prisma/client';
 
-export const createOtpCode = async (code: string, userId: number) =>
+export const createOtpCode = async (code: string, userId: number, type: OtpType) =>
   prisma.otpCode.create({
     data: {
       code,
       userId,
+      type,
       expiresAt: expiryToDate(config.OTP_CODE_EXPIRY),
     },
   });
 
-export const getMostRecentOtpCodeByUserId = async (userId: number) =>
+export const getMostRecentOtpCodeByUserId = async (userId: number, type: OtpType) =>
   prisma.otpCode.findFirst({
     where: {
       userId,
+      type,
     },
     orderBy: { createdAt: 'desc' },
   });

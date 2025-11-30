@@ -29,6 +29,7 @@ export interface Config {
   ACCESS_TOKEN_EXPIRY: number;
   REFRESH_TOKEN_EXPIRY: number;
   OTP_CODE_EXPIRY: number;
+  RESET_TOKEN_SECRET: string;
   EMAIL_HOST: string;
   EMAIL_PORT: string;
   EMAIL_USERNAME: string;
@@ -42,11 +43,12 @@ export interface Config {
 export const config: Config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
-  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || '',
-  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || '',
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET!,
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
   ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900', 10),
   REFRESH_TOKEN_EXPIRY: parseInt(process.env.REFRESH_TOKEN_EXPIRY || '2592000', 10),
   OTP_CODE_EXPIRY: parseInt(process.env.OTP_CODE_EXPIRY || '900', 10),
+  RESET_TOKEN_SECRET: process.env.RESET_TOKEN_SECRET!,
   EMAIL_HOST: process.env.EMAIL_HOST!,
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
