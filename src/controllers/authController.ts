@@ -79,12 +79,7 @@ const authController = {
       // Generate and store OTP code for email verification
       const emailOtp = generateOtp();
       const emailOtpHash = await bcrypt.hash(emailOtp, 10);
-      await createOtpCode(
-        emailOtpHash,
-        createdUser.id,
-        'EMAIL_VERIFICATION',
-        new Date(Date.now() + config.OTP_CODE_EXPIRY)
-      );
+      await createOtpCode(emailOtpHash, createdUser.id, 'EMAIL_VERIFICATION');
 
       // Send verification email
       const message = `Welcome to Nara!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
@@ -228,12 +223,7 @@ const authController = {
       const emailOtp = generateOtp();
       const emailOtpHash = await bcrypt.hash(emailOtp, 10);
 
-      await createOtpCode(
-        emailOtpHash,
-        createdUser.id,
-        'EMAIL_VERIFICATION',
-        new Date(Date.now() + config.OTP_CODE_EXPIRY)
-      );
+      await createOtpCode(emailOtpHash, createdUser.id, 'EMAIL_VERIFICATION');
       const message = `Welcome to Nara!\n\nYour verification code is: ${emailOtp}\n\nPlease enter this code to verify your email address and complete your account setup.`;
       try {
         await sendEmail({
@@ -262,12 +252,7 @@ const authController = {
       const otp: string = generateOtp();
 
       const emailOtpHash = await bcrypt.hash(otp, 10);
-      await createOtpCode(
-        emailOtpHash,
-        user.id,
-        'PASSWORD_RESET',
-        new Date(Date.now() + config.OTP_CODE_EXPIRY)
-      );
+      await createOtpCode(emailOtpHash, user.id, 'PASSWORD_RESET');
 
       const message =
         `You requested to reset your password.\n\n` +

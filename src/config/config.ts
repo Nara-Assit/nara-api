@@ -35,20 +35,26 @@ export interface Config {
   EMAIL_USERNAME: string;
   EMAIL_PASSWORD: string;
   EMAIL_FROM: string;
+  SMS_API_TOKEN: string;
+  SMS_API_URL: string;
+  SMS_FROM: string;
 }
 
 export const config: Config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
-  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || '',
-  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || '',
-  ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900000', 10),
-  REFRESH_TOKEN_EXPIRY: parseInt(process.env.REFRESH_TOKEN_EXPIRY || '2592000000', 10),
-  OTP_CODE_EXPIRY: parseInt(process.env.OTP_CODE_EXPIRY || '900000', 10),
-  RESET_TOKEN_SECRET: process.env.RESET_TOKEN_SECRET || '',
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET!,
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
+  ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900', 10),
+  REFRESH_TOKEN_EXPIRY: parseInt(process.env.REFRESH_TOKEN_EXPIRY || '2592000', 10),
+  OTP_CODE_EXPIRY: parseInt(process.env.OTP_CODE_EXPIRY || '900', 10),
+  RESET_TOKEN_SECRET: process.env.RESET_TOKEN_SECRET!,
   EMAIL_HOST: process.env.EMAIL_HOST!,
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD!,
   EMAIL_FROM: process.env.EMAIL_FROM!,
+  SMS_API_TOKEN: process.env.SMS_API_TOKEN!,
+  SMS_API_URL: process.env.SMS_API_URL!,
+  SMS_FROM: process.env.SMS_FROM || 'NARA',
 };
