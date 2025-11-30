@@ -35,6 +35,16 @@ enum OtpType {
   PASSWORD_RESET
 }
 
+enum ChatType {
+  PRIVATE
+  GROUP
+}
+
+enum ChatRole {
+  ADMIN
+  MEMBER
+}
+
 model User {
   id                 Int                @id @default(autoincrement())
   name               String             @db.VarChar(50)
@@ -47,12 +57,18 @@ model User {
   country            String             @db.VarChar(50)
   age                Int                @db.SmallInt
   closeContactNumber String             @db.VarChar(15)
+  lastActiveAt       DateTime?
+  
   role               RoleType
   refreshTokens      RefreshToken[]
   otpCodes           OtpCode[]
   notifications      Notification[]
   fcmTokens          FcmToken[]
   userNotifications  UserNotification[]
+  messages           Message[]
+  userChats          UserChat[]
+  blockedUsers       UserBlock[]        @relation("Blocker")
+  blockedByUsers     UserBlock[]        @relation("Blocked")
 
   @@index([id])
   @@index([email])
@@ -75,12 +91,12 @@ model OtpCode {
   code      String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
-  type   OtpType
+  type      OtpType
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([code])
-  @@index([userId,type])
+  @@index([userId, type])
 }
 
 model FcmToken {
@@ -96,10 +112,11 @@ model FcmToken {
 
 model Notification {
   id                Int                @id @default(autoincrement())
-  users             User[]
   payload           Json
   createdAt         DateTime           @default(now())
   userNotifications UserNotification[]
+  user              User?              @relation(fields: [userId], references: [id])
+  userId            Int?
 }
 
 model UserNotification {
@@ -113,4 +130,57 @@ model UserNotification {
   @@id([userId, notificationId])
   @@index([notificationId])
   @@index([userId])
+}
+
+model Chat {
+  id           Int        @id @default(autoincrement())
+  type         ChatType
+  createdAt    DateTime   @default(now())
+  lastActivity DateTime   @default(now())
+  name         String?    @db.VarChar(50)
+  description  String?    @db.VarChar(1024)
+  avatarUrl    String?    @db.VarChar(255)
+  messages     Message[]
+  userChats    UserChat[]
+
+  @@index([lastActivity])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId  Int
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId    Int
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([senderId])
+  @@index([chatId])
+}
+
+model UserChat {
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  chat       Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId     Int
+  joinedAt   DateTime @default(now())
+  role       ChatRole
+  isFavorite Boolean  @default(false)
+
+  @@id([userId, chatId])
+  @@index([chatId])
+}
+
+model UserBlock {
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@index([blockerId])
 }
