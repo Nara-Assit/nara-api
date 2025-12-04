@@ -38,6 +38,7 @@ export interface Config {
   SMS_API_TOKEN: string;
   SMS_API_URL: string;
   SMS_FROM: string;
+  UPSTASH_REDIS_REST_URL: string;
 }
 
 export const config: Config = {
@@ -57,4 +58,5 @@ export const config: Config = {
   SMS_API_TOKEN: process.env.SMS_API_TOKEN!,
   SMS_API_URL: process.env.SMS_API_URL!,
   SMS_FROM: process.env.SMS_FROM || 'NARA',
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL!,
 };
