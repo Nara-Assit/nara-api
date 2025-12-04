@@ -46,29 +46,29 @@ enum ChatRole {
 }
 
 model User {
-  id                 Int                @id @default(autoincrement())
-  name               String             @db.VarChar(50)
-  profileImageUrl    String?            @db.VarChar(255)
-  email              String             @unique @db.VarChar(255)
-  phoneNumber        String?            @unique @db.VarChar(15)
-  passwordHash       String             @db.VarChar(255)
-  createdAt          DateTime           @default(now())
-  isVerified         Boolean            @default(false)
-  country            String             @db.VarChar(50)
-  age                Int                @db.SmallInt
-  closeContactNumber String             @db.VarChar(15)
+  id                 Int       @id @default(autoincrement())
+  name               String    @db.VarChar(50)
+  profileImageUrl    String?   @db.VarChar(255)
+  email              String    @unique @db.VarChar(255)
+  phoneNumber        String?   @unique @db.VarChar(15)
+  passwordHash       String    @db.VarChar(255)
+  createdAt          DateTime  @default(now())
+  isVerified         Boolean   @default(false)
+  country            String    @db.VarChar(50)
+  age                Int       @db.SmallInt
+  closeContactNumber String    @db.VarChar(15)
   lastActiveAt       DateTime?
-  
-  role               RoleType
-  refreshTokens      RefreshToken[]
-  otpCodes           OtpCode[]
-  notifications      Notification[]
-  fcmTokens          FcmToken[]
-  userNotifications  UserNotification[]
-  messages           Message[]
-  userChats          UserChat[]
-  blockedUsers       UserBlock[]        @relation("Blocker")
-  blockedByUsers     UserBlock[]        @relation("Blocked")
+
+  role              RoleType
+  refreshTokens     RefreshToken[]
+  otpCodes          OtpCode[]
+  notifications     Notification[]
+  fcmTokens         FcmToken[]
+  userNotifications UserNotification[]
+  messages          Message[]
+  chats             UserChat[]
+  blockedUsers      UserBlock[]        @relation("Blocker")
+  blockedByUsers    UserBlock[]        @relation("Blocked")
 
   @@index([id])
   @@index([email])
@@ -141,7 +141,7 @@ model Chat {
   description  String?    @db.VarChar(1024)
   avatarUrl    String?    @db.VarChar(255)
   messages     Message[]
-  userChats    UserChat[]
+  members      UserChat[]
 
   @@index([lastActivity])
 }
