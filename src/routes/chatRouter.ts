@@ -20,7 +20,7 @@ chatRouter.delete('/:id/messages/:messageId', chatController.deleteMessage);
 chatRouter.get('/:id/messages', chatController.getChatMessages);
 
 // User Block Routes
-chatRouter.get('/is-blocked/:id', chatController.isBlocked);
+chatRouter.get('/is-blocked-by-me/:id', chatController.isBlockedByMe);
 chatRouter.post('/block/:id', chatController.blockUser);
 chatRouter.post('/unblock/:id', chatController.unblockUser);
 
