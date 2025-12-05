@@ -11,6 +11,19 @@ export async function isUserBlocked(blockerId: number, blockedId: number) {
   return blockCount > 0;
 }
 
+export async function canInteract(userId1: number, userId2: number) {
+  const blockCount = await prisma.userBlock.count({
+    where: {
+      OR: [
+        { blockerId: userId1, blockedId: userId2 },
+        { blockerId: userId2, blockedId: userId1 },
+      ],
+    },
+  });
+
+  return blockCount === 0;
+}
+
 export async function blockUser(blockerId: number, blockedId: number) {
   await prisma.userBlock.create({
     data: {

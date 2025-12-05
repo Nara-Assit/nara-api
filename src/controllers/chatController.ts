@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types/express.js';
-import { blockUser, isUserBlocked, unblockUser } from '../repositories/blocksRepo.js';
+import { blockUser, canInteract, isUserBlocked, unblockUser } from '../repositories/blocksRepo.js';
 import { getChatById } from '../repositories/chatRepo.js';
 import { ChatType } from '@prisma/client';
 import {
@@ -9,7 +9,7 @@ import {
   getMessageById,
   getMessagesByChatId,
 } from '../repositories/messageRepo.js';
-import { getIo } from '../socket.js';
+import { getIo, handleUserLeaving } from '../socket.js';
 import { removeUserFromChat } from '../repositories/userRepo.js';
 
 const chatController = {
@@ -35,10 +35,17 @@ const chatController = {
         return res.status(404).json({ error: 'Group chat not found.' });
       }
 
+      // delete user from chat members in database
       const deletedUser = await removeUserFromChat(userId, chatId);
 
       // send socket event to notify other members
-      getIo().to(`chat_${chatId}`).emit('user:left', deletedUser);
+      getIo().to(`chat_${chatId}`).emit('user:leave', deletedUser);
+
+      // remove user from chat room in current IO server
+      handleUserLeaving({ chatId, userId });
+
+      // notify other IO servers about the user leaving the group
+      getIo().serverSideEmit('room:leave', { chatId, userId });
 
       return res.status(200).json({ message: 'You have left the group successfully.' });
     } catch (error) {
@@ -76,13 +83,19 @@ const chatController = {
         return res.status(404).json({ error: 'Chat not found.' });
       }
 
+      // check if sender is in chat members
+      const isMember = chat.members.some((member) => member.userId === senderId);
+      if (!isMember) {
+        return res.status(403).json({ error: 'You are not a member of this chat.' });
+      }
+
       // if chat is private and sender is blocked by recipient, prevent message creation
       // if chat is group, allow message creation even some members have blocked the sender
       if (chat.type === ChatType.PRIVATE) {
         const recipient = chat.members.find((member) => member.userId !== senderId);
         if (recipient) {
-          const isBlocked = await isUserBlocked(recipient.userId, senderId);
-          if (isBlocked) {
+          const canInteractResult = await canInteract(recipient.userId, senderId);
+          if (!canInteractResult) {
             return res.status(403).json({ error: 'You are blocked by the recipient.' });
           }
         }
@@ -152,9 +165,9 @@ const chatController = {
     }
   },
 
-  isBlocked: async (req: AuthRequest, res: Response, next: NextFunction) => {
+  isBlockedByMe: async (req: AuthRequest, res: Response, next: NextFunction) => {
     const userId = parseInt(req.userId!, 10);
-    const checkedUserId = parseInt(req.params.userId!, 10);
+    const checkedUserId = parseInt(req.params.id!, 10);
 
     try {
       const blocked = await isUserBlocked(userId, checkedUserId);
@@ -166,7 +179,8 @@ const chatController = {
 
   blockUser: async (req: AuthRequest, res: Response, next: NextFunction) => {
     const blockerId = parseInt(req.userId!, 10);
-    const blockedId = parseInt(req.params.userId!, 10);
+    const blockedId = parseInt(req.params.id!, 10);
+
     // check if trying to block self
     if (blockedId === blockerId) {
       return res.status(400).json({ error: "You can't block yourself." });
@@ -189,7 +203,7 @@ const chatController = {
 
   unblockUser: async (req: AuthRequest, res: Response, next: NextFunction) => {
     const blockerId = parseInt(req.userId!, 10);
-    const blockedId = parseInt(req.params.userId!, 10);
+    const blockedId = parseInt(req.params.id!, 10);
     // check if trying to unblock self
     if (blockedId === blockerId) {
       return res.status(400).json({ error: "You can't unblock yourself." });

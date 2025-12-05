@@ -15,3 +15,5 @@ server.listen(PORT, () => {
  API Health: http://localhost:${PORT}/api/health
   `);
 });
+
+export default server;

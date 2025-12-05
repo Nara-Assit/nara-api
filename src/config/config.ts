@@ -7,23 +7,34 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables from .env file (check both root and config.env)
-const envPath =
-  process.env.NODE_ENV === 'production'
-    ? resolve(__dirname, '../../.env')
-    : resolve(__dirname, '../../config.env');
+let envPath: string;
+let envFile: string;
+switch (process.env.NODE_ENV) {
+  case 'production':
+    envPath = resolve(__dirname, '../../.env');
+    envFile = '.env';
+    break;
+  case 'test':
+    envPath = resolve(__dirname, '../../test.env');
+    envFile = 'test.env';
+    break;
+  default:
+    envPath = resolve(__dirname, '../../config.env');
+    envFile = 'config.env';
+}
 
-const result = dotenvConfig({ path: envPath });
+const result = dotenvConfig({ path: envPath, override: true });
 if (result.error) {
   console.warn('Warning: Could not load environment file. Using existing environment variables.');
 } else {
-  console.log(
-    `✅ Environment variables loaded from ${process.env.NODE_ENV === 'production' ? '.env' : 'config.env'}`
-  );
+  console.log(`✅ Environment variables loaded from ${envFile}`);
 }
 
 export interface Config {
   PORT: number;
   NODE_ENV: string;
+  DATABASE_URL: string;
+  DIRECT_URL: string;
   ACCESS_TOKEN_SECRET: string;
   REFRESH_TOKEN_SECRET: string;
   ACCESS_TOKEN_EXPIRY: number;
@@ -44,6 +55,8 @@ export interface Config {
 export const config: Config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  DATABASE_URL: process.env.DATABASE_URL!,
+  DIRECT_URL: process.env.DIRECT_URL!,
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET!,
   REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
   ACCESS_TOKEN_EXPIRY: parseInt(process.env.ACCESS_TOKEN_EXPIRY || '900', 10),

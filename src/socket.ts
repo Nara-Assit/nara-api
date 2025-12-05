@@ -7,6 +7,7 @@ import { Redis } from 'ioredis';
 import { config } from './config/config.js';
 
 let io: SocketServer;
+const userSockets = new Map<number, Set<Socket>>();
 
 export function initializeSocket(server: HttpServer) {
   const pubClient = new Redis(config.UPSTASH_REDIS_REST_URL);
@@ -19,7 +20,9 @@ export function initializeSocket(server: HttpServer) {
   io.use(verifySocketToken);
 
   io.on('connection', async (socket: Socket) => {
-    const userId = socket.data.userId;
+    const userId = parseInt(socket.data.userId, 10);
+    userSockets.set(userId, (userSockets.get(userId) || new Set()).add(socket));
+
     console.log(`User ${userId} connected: ${socket.id}`);
     console.log(`Total connected users: ${io.engine.clientsCount}`);
 
@@ -34,6 +37,9 @@ export function initializeSocket(server: HttpServer) {
       console.log(`User disconnected: ${socket.id}`);
     });
   });
+
+  // Listen for room:leave events to remove users from chat rooms across servers
+  io.on('room:leave', handleUserLeaving);
 }
 
 export function getIo(): SocketServer {
@@ -41,4 +47,13 @@ export function getIo(): SocketServer {
     throw new Error('Socket.io not initialized!');
   }
   return io;
+}
+
+export function handleUserLeaving({ userId, chatId }: { userId: number; chatId: number }) {
+  const sockets = userSockets.get(userId);
+  if (sockets) {
+    for (const socket of sockets) {
+      socket.leave(`chat_${chatId}`);
+    }
+  }
 }
