@@ -20,3 +20,30 @@ export const createUser = async (data: CreateUserData) => {
 export const updateUser = async (id: number, data: Partial<User>) => {
   return await prisma.user.update({ where: { id }, data });
 };
+
+export const getUserChatIds = async (userId: number): Promise<number[]> => {
+  const chats = await prisma.userChat.findMany({
+    where: {
+      userId,
+    },
+    select: {
+      chatId: true,
+    },
+  });
+
+  const chatIds = chats.map((c) => c.chatId);
+  return chatIds;
+};
+
+export const removeUserFromChat = async (userId: number, chatId: number) => {
+  const deletedUser = await prisma.userChat.delete({
+    where: {
+      userId_chatId: {
+        userId,
+        chatId,
+      },
+    },
+  });
+
+  return deletedUser;
+};

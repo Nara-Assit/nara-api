@@ -25,6 +25,7 @@ lib/
 .env.production.local
 secrets.env
 config.env
+test.env
 serviceAccountKey.json
 
 # Logs

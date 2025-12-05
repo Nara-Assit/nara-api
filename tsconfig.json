@@ -8,7 +8,7 @@
     "target": "ES2022", // Compile to modern JavaScript version supported by Node.js
     "lib": ["ES2022"], // Include ES2022 library features (no DOM for backend)
 
-    "types": ["node"], // Include Node.js type declarations
+    "types": ["node", "jest"], // Include Node.js and Jest type declarations
 
     "moduleResolution": "nodenext", // Match module strategy for proper resolution in Node.js ESM
 
@@ -37,5 +37,5 @@
     "esModuleInterop": true, // Enable compatible import syntax for CommonJS modules
     "resolveJsonModule": true // Allow importing JSON modules (useful for config files)
   },
-  "include": ["src/**/*", "src/config"] // Include all TypeScript files in src directory
+  "include": ["src/**/*", "src/config", "src/tests"] // Include all TypeScript files in src directory
 }
