@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types/express.js';
 import { blockUser, canInteract, isUserBlocked, unblockUser } from '../repositories/blocksRepo.js';
