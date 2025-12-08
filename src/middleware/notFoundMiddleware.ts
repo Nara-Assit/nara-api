@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 
 export default function (req: Request, res: Response) {
   res.status(404).json({
-    error: 'Route not found',
+    success: false,
+    message: 'Route not found',
   });
 }

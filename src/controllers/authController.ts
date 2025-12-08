@@ -29,13 +29,13 @@ const authController = {
       // Check if user exists and is verified
       const loggedInUser = await getUserByEmail(user.email);
       if (!loggedInUser || !loggedInUser.isVerified) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ success: false, message: 'Invalid email or password' });
       }
 
       // Verify password
       const passwordMatch = await bcrypt.compare(user.password, loggedInUser.passwordHash);
       if (!passwordMatch) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ success: false, message: 'Invalid email or password' });
       }
 
       // Generate JWT tokens
@@ -53,9 +53,11 @@ const authController = {
       // remove sensitive info before sending user data
       const { passwordHash: _, ...publicUser } = loggedInUser;
 
-      return res
-        .status(200)
-        .json({ message: 'Login successful', accessToken, refreshToken, user: publicUser });
+      return res.status(200).json({
+        success: true,
+        message: 'Login successful',
+        data: { accessToken, refreshToken, user: publicUser },
+      });
     } catch (error) {
       next(error);
     }
@@ -67,7 +69,7 @@ const authController = {
       // Check if user with the same email already exists
       const loggedInUser = await getUserByEmail(user.email);
       if (loggedInUser) {
-        return res.status(409).json({ error: 'Email already in use' });
+        return res.status(409).json({ success: false, message: 'Email already in use' });
       }
 
       // Create a new unverified user
@@ -98,8 +100,9 @@ const authController = {
       const { passwordHash: _, ...publicUser } = createdUser;
 
       return res.status(201).json({
+        success: true,
         message: 'User registered successfully',
-        user: publicUser,
+        data: { publicUser },
       });
     } catch (error) {
       next(error);
@@ -109,14 +112,14 @@ const authController = {
     try {
       const refreshToken = req.body.refreshToken;
       if (!refreshToken) {
-        return res.status(400).json({ error: 'Refresh token is required' });
+        return res.status(400).json({ success: false, message: 'Refresh token is required' });
       }
 
       await deleteRefreshToken(refreshToken);
-      return res.status(200).json({ message: 'User logged out successfully' });
+      return res.status(200).json({ success: true, message: 'User logged out successfully' });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        return res.status(400).json({ error: 'User already logged out' });
+        return res.status(400).json({ success: false, message: 'User already logged out' });
       }
       next(error);
     }
@@ -126,12 +129,12 @@ const authController = {
       const refreshToken = req.body.refreshToken;
 
       if (!refreshToken) {
-        return res.status(400).json({ error: 'Refresh token is required' });
+        return res.status(400).json({ success: false, message: 'Refresh token is required' });
       }
 
       const storedToken = await getRefreshToken(refreshToken);
       if (!storedToken || storedToken.expiresAt < new Date()) {
-        return res.status(403).json({ error: 'Invalid refresh token' });
+        return res.status(403).json({ success: false, message: 'Invalid refresh token' });
       }
 
       const payload = jwt.verify(storedToken.token, config.REFRESH_TOKEN_SECRET) as {
@@ -148,13 +151,13 @@ const authController = {
       await deleteRefreshToken(refreshToken);
 
       res.json({
+        success: true,
         message: 'Tokens refreshed successfully',
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
+        data: { accessToken: newAccessToken, refreshToken: newRefreshToken },
       });
     } catch (error) {
       if (error instanceof jwt.JsonWebTokenError) {
-        return res.status(403).json({ error: 'Invalid refresh token' });
+        return res.status(403).json({ success: false, message: 'Invalid refresh token' });
       }
       next(error);
     }
@@ -175,12 +178,12 @@ const authController = {
       const storedOtpCode = await getMostRecentOtpCodeByUserId(userId, 'EMAIL_VERIFICATION');
 
       if (!storedOtpCode || storedOtpCode.expiresAt < new Date()) {
-        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP code' });
       }
 
       const otpMatch = await bcrypt.compare(otpCode, storedOtpCode.code);
       if (!otpMatch) {
-        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP code' });
       }
 
       await updateUser(userId, { isVerified: true });
@@ -196,9 +199,9 @@ const authController = {
       await createRefreshToken(refreshToken, userId);
 
       return res.status(201).json({
+        success: true,
         message: 'User verified successfully',
-        accessToken,
-        refreshToken,
+        data: { accessToken, refreshToken },
       });
     } catch (error) {
       return next(error);
@@ -286,11 +289,11 @@ const authController = {
       const storedOtpCode = await getMostRecentOtpCodeByUserId(userId, 'PASSWORD_RESET');
 
       if (!storedOtpCode || storedOtpCode.expiresAt < new Date()) {
-        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP code' });
       }
       const otpMatch = await bcrypt.compare(otpCode, storedOtpCode.code);
       if (!otpMatch) {
-        return res.status(400).json({ error: 'Invalid or expired OTP code' });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP code' });
       }
 
       const payload = { userId: user.id };
@@ -299,8 +302,9 @@ const authController = {
       });
 
       return res.status(201).json({
+        success: true,
         message: 'OTP verified successfully',
-        resetToken,
+        data: { resetToken },
       });
     } catch (error) {
       next(error);
@@ -323,7 +327,7 @@ const authController = {
         userId = parseInt(payload.userId!, 10);
       } catch (error) {
         console.error('Token verification failed:', error);
-        return res.status(401).json({ error: `Failed to verify token` });
+        return res.status(401).json({ success: false, message: `Failed to verify token` });
       }
 
       const user = await getUserById(userId);
@@ -338,6 +342,7 @@ const authController = {
       await updateUser(userId, { passwordHash });
 
       return res.status(201).json({
+        success: true,
         message: 'Password reset successfully',
       });
     } catch (error) {
