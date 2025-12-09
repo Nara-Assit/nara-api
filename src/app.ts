@@ -9,6 +9,7 @@ import { verifyToken } from './middleware/authMiddleware.js';
 import userRouter from './routes/userRouter.js';
 import notificationRouter from './routes/notificationRouter.js';
 import chatRouter from './routes/chatRouter.js';
+import aiRouter from './routes/aiRouter.js';
 
 const app: Application = express();
 if (config.NODE_ENV === 'development') {
@@ -33,6 +34,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', verifyToken, userRouter);
 app.use('/api/notifications', verifyToken, notificationRouter);
 app.use('/api/chats', verifyToken, chatRouter);
+app.use('/api/ai', verifyToken, aiRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
