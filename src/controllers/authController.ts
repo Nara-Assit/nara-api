@@ -28,8 +28,16 @@ const authController = {
 
       // Check if user exists and is verified
       const loggedInUser = await getUserByEmail(user.email);
-      if (!loggedInUser || !loggedInUser.isVerified) {
-        return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      if (!loggedInUser) {
+        return res.status(201).json({ success: false, message: 'Invalid email or password' });
+      }
+
+      if (!loggedInUser.isVerified) {
+        const { passwordHash: _, ...publicUser } = loggedInUser;
+
+        return res
+          .status(403)
+          .json({ success: false, message: 'Email not verified', data: { user: publicUser } });
       }
 
       // Verify password
@@ -53,7 +61,7 @@ const authController = {
       // remove sensitive info before sending user data
       const { passwordHash: _, ...publicUser } = loggedInUser;
 
-      return res.status(200).json({
+      return res.status(201).json({
         success: true,
         message: 'Login successful',
         data: { accessToken, refreshToken, user: publicUser },
