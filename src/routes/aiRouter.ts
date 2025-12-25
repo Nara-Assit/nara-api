@@ -1,10 +1,8 @@
 import Router from 'express';
 import aiController from '../controllers/aiController.js';
-import validateData from '../middleware/validationMiddleware.js';
-import { ttsSchema } from '../schemas/aiModelsSchema.js';
+import handleMode from '../middleware/handleModeMiddleware.js';
 
 const aiRouter = Router();
 
-aiRouter.post('/text-to-speech', validateData(ttsSchema), aiController.generateAudio);
-
+aiRouter.post('/voice', handleMode, aiController.handleVoice);
 export default aiRouter;
