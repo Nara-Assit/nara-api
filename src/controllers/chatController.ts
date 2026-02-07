@@ -11,7 +11,7 @@ import {
   getMessageById,
   getMessagesByChatId,
 } from '../repositories/messageRepo.js';
-import { getIo, handleUserLeaving } from '../socket.js';
+import { getIo } from '../socket.js';
 import { removeUserFromChat } from '../repositories/userRepo.js';
 
 const chatController = {
@@ -43,11 +43,8 @@ const chatController = {
       // send socket event to notify other members
       getIo().to(`chat_${chatId}`).emit('user:leave', deletedUser);
 
-      // remove user from chat room in current IO server
-      handleUserLeaving({ chatId, userId });
-
-      // notify other IO servers about the user leaving the group
-      getIo().serverSideEmit('room:leave', { chatId, userId });
+      // remove user from chat room
+      getIo().in(`user_${userId}`).socketsLeave(`chat_${chatId}`);
 
       return res.status(200).json({ message: 'You have left the group successfully.' });
     } catch (error) {

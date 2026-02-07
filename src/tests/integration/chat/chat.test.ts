@@ -345,7 +345,7 @@ describe('Socket.IO chat integration test', () => {
     await request(server)
       .post(`/api/chats/block/${testUsers[1]!.id}`)
       .set('Authorization', `Bearer ${testUsers[0]!.token}`)
-      .expect(200);
+      .expect(201);
 
     // Verify that User 1 has blocked User 2
     await request(server)
