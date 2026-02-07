@@ -35,6 +35,13 @@ export function initializeSocket(server: HttpServer) {
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
+      const sockets = userSockets.get(userId);
+      if (sockets) {
+        sockets.delete(socket);
+        if (sockets.size === 0) {
+          userSockets.delete(userId);
+        }
+      }
     });
   });
 

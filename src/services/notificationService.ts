@@ -25,11 +25,16 @@ async function sendNotification(
   notification: BackgroundNotification | ForegroundNotification,
   userIds: [number, ...number[]]
 ) {
+  // Store the notifications in the database for the specified users
+  await createNotificationForUsers(notification, userIds);
+
   // Find the registration tokens for the given user IDs
   const fcmTokensStrings = await getFcmTokensStrings(userIds);
 
-  // Store the notifications in the database for the specified users
-  await createNotificationForUsers(notification, userIds);
+  // skip sending notification if user hasn't registered any FCM tokens
+  if (fcmTokensStrings.length === 0) {
+    return;
+  }
 
   // Send the notification via Firebase Cloud Messaging
   const result = await sendFcmNotification(notification, fcmTokensStrings);
