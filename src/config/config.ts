@@ -49,7 +49,6 @@ export interface Config {
   SMS_API_TOKEN: string;
   SMS_API_URL: string;
   SMS_FROM: string;
-  UPSTASH_REDIS_REST_URL: string;
   TTS_MODEL_URL: string;
   STT_MODEL_URL: string;
   CLOUDINARY_CLOUD_NAME: string;
@@ -76,7 +75,6 @@ export const config: Config = {
   SMS_API_TOKEN: process.env.SMS_API_TOKEN!,
   SMS_API_URL: process.env.SMS_API_URL!,
   SMS_FROM: process.env.SMS_FROM || 'NARA',
-  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL!,
   TTS_MODEL_URL: process.env.TTS_MODEL_URL!,
   STT_MODEL_URL: process.env.STT_MODEL_URL!,
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME!,

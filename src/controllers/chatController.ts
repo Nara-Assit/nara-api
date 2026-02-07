@@ -41,10 +41,10 @@ const chatController = {
       const deletedUser = await removeUserFromChat(userId, chatId);
 
       // send socket event to notify other members
-      getIo().to(`chat_${chatId}`).emit('user:leave', deletedUser);
+      getIo().to(`chat:${chatId}`).emit('user:leave', deletedUser);
 
       // remove user from chat room
-      getIo().in(`user_${userId}`).socketsLeave(`chat_${chatId}`);
+      getIo().in(`user:${userId}`).socketsLeave(`chat:${chatId}`);
 
       return res.status(200).json({ message: 'You have left the group successfully.' });
     } catch (error) {
@@ -108,7 +108,7 @@ const chatController = {
       });
 
       // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat_${chatId}`).emit('message:new', message);
+      getIo().to(`chat:${chatId}`).emit('message:new', message);
 
       return res.status(201).json({ message: 'Message sent successfully.' });
     } catch (error) {
@@ -157,7 +157,7 @@ const chatController = {
       const deletedMessage = await deleteMessageById(messageId, chatId);
 
       // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat_${chatId}`).emit('message:deleted', deletedMessage);
+      getIo().to(`chat:${chatId}`).emit('message:deleted', deletedMessage);
 
       return res.status(200).json({ message: 'Message deleted successfully.' });
     } catch (error) {

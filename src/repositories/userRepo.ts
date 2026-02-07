@@ -47,3 +47,21 @@ export const removeUserFromChat = async (userId: number, chatId: number) => {
 
   return deletedUser;
 };
+
+export const searchForUsersByName = async (name: string, page: number, limit: number) => {
+  const users = await prisma.user.findMany({
+    where: {
+      name: {
+        contains: name,
+        mode: 'insensitive',
+      },
+    },
+    omit: {
+      passwordHash: true,
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return users;
+};

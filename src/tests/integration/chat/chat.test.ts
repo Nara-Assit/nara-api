@@ -7,7 +7,6 @@ import { config } from '../../../config/config.js';
 import request from 'supertest';
 import { getMessagesByChatId } from '../../../repositories/messageRepo.js';
 import { getIo } from '../../../socket.js';
-import type { RedisAdapter } from '@socket.io/redis-adapter';
 
 describe('Socket.IO chat integration test', () => {
   const clients: [Socket, number][] = [];
@@ -461,11 +460,6 @@ describe('Socket.IO chat integration test', () => {
     // Close Socket.IO server
     const io = getIo();
     await io.close();
-
-    // Close Redis clients
-    const adapter: RedisAdapter = io.of('/').adapter as RedisAdapter;
-    await adapter.pubClient.quit();
-    await adapter.subClient.quit();
 
     // Close HTTP server
     await new Promise<void>((resolve) => server.close(() => resolve()));
