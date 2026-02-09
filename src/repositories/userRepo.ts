@@ -18,7 +18,7 @@ export const createUser = async (data: CreateUserData) => {
 };
 
 export const updateUser = async (id: number, data: Partial<User>) => {
-  return await prisma.user.update({ where: { id }, data });
+  return await prisma.user.updateMany({ where: { id }, data });
 };
 
 export const getUserChatIds = async (userId: number): Promise<number[]> => {

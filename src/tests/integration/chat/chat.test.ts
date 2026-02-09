@@ -455,18 +455,24 @@ describe('Socket.IO chat integration test', () => {
 
   afterAll(async () => {
     // Disconnect clients
-    clients.forEach((c) => c[0].disconnect());
+    clients.forEach(([client]) => {
+      client.disconnect();
+      client.removeAllListeners();
+    });
+    clients.length = 0;
 
     // Close Socket.IO server
     const io = getIo();
     await io.close();
 
     // Close HTTP server
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.close();
 
     // Cleanup DB
+    await prisma.message.deleteMany();
     await prisma.userChat.deleteMany();
     await prisma.chat.deleteMany();
+    await prisma.userBlock.deleteMany();
     await prisma.user.deleteMany();
 
     // Disconnect Prisma

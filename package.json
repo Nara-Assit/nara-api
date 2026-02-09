@@ -16,7 +16,8 @@
     "prebuild": "npm-run-all clean lint:fix format:fix",
     "prestart:dev": "npm run typecheck",
     "migrate": "prisma migrate dev",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --runInBand",
+    "db:push:test": "dotenv -e test.env --override -- prisma db push"
   },
   "keywords": [],
   "author": "",
@@ -51,6 +52,7 @@
     "@types/nodemailer": "^7.0.4",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",

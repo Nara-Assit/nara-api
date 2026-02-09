@@ -25,9 +25,6 @@ export function initializeSocket(server: HttpServer) {
 
     socket.join(`user:${userId}`);
 
-    console.log(`User ${userId} connected: ${socket.id}`);
-    console.log(`Total connected users: ${io.engine.clientsCount}`);
-
     // join a room for each chat the user is part of
     const chatIds = await getUserChatIds(userId);
     for (const chatId of chatIds) {
@@ -36,8 +33,6 @@ export function initializeSocket(server: HttpServer) {
 
     // Handle disconnection, socket will automatically leave all rooms it was part of, but we can log it here
     socket.on('disconnect', async () => {
-      console.log(`User disconnected: ${socket.id}`);
-
       // Check if the user no longer has any active sockets before marking them as offline
       if (getUserStatus(userId) === USER_STATUS.OFFLINE) {
         // Notify other users about this user's presence update

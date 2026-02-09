@@ -46,7 +46,16 @@ describe('Presence realtime updates', () => {
     });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    // Disconnect all clients and remove listeners
+    [client1, client2, client3].forEach((client) => {
+      if (client) {
+        client.disconnect();
+        client.removeAllListeners();
+      }
+    });
+
+    // Close HTTP server
     httpServer.close();
   });
 
