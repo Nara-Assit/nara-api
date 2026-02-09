@@ -1,3 +1,5 @@
+import type { JsonValue } from '@prisma/client/runtime/library';
+
 export enum NotificationType {
   CHAT = 'CHAT',
   SYSTEM = 'SYSTEM',
@@ -5,14 +7,15 @@ export enum NotificationType {
   TRAINING = 'TRAINING',
 }
 
-export interface ForegroundNotification {
-  data: {
-    notificationType: NotificationType;
-    [key: string]: string;
-  };
+export interface NotificationData {
+  payload: Record<string, JsonValue>;
+  body: string;
+  title: string;
+  type: NotificationType;
+  senderId: number | null;
 }
 
-export interface BackgroundNotification extends ForegroundNotification {
+export interface BackgroundNotification {
   notification: {
     title: string;
     body: string;

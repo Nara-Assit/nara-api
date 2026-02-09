@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import type { Socket } from 'socket.io';
 import type { NextFunction } from 'express';
 
-const getUserChatIds = jest.fn((userId: number) => []);
+const getUserChatIds = jest.fn(() => []);
 const updateUser = jest.fn();
 
 const verifySocketToken = jest.fn((socket: Socket, next: NextFunction) => {
