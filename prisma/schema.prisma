@@ -46,18 +46,18 @@ enum ChatRole {
 }
 
 model User {
-  id                 Int       @id @default(autoincrement())
-  name               String    @db.VarChar(50)
-  profileImageUrl    String?   @db.VarChar(255)
-  email              String    @unique @db.VarChar(255)
-  phoneNumber        String?   @unique @db.VarChar(15)
-  passwordHash       String    @db.VarChar(255)
-  createdAt          DateTime  @default(now())
-  isVerified         Boolean   @default(false)
-  country            String    @db.VarChar(50)
-  age                Int       @db.SmallInt
-  closeContactNumber String    @db.VarChar(15)
-  lastActiveAt       DateTime?
+  id                 Int      @id @default(autoincrement())
+  name               String   @db.VarChar(50)
+  profileImageUrl    String?  @db.VarChar(255)
+  email              String   @unique @db.VarChar(255)
+  phoneNumber        String?  @unique @db.VarChar(15)
+  passwordHash       String   @db.VarChar(255)
+  createdAt          DateTime @default(now())
+  isVerified         Boolean  @default(false)
+  country            String   @db.VarChar(50)
+  age                Int      @db.SmallInt
+  closeContactNumber String   @db.VarChar(15)
+  lastActiveAt       DateTime @default(now())
 
   role              RoleType
   refreshTokens     RefreshToken[]
