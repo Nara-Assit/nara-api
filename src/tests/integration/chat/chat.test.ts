@@ -7,7 +7,6 @@ import { config } from '../../../config/config.js';
 import request from 'supertest';
 import { getMessagesByChatId } from '../../../repositories/messageRepo.js';
 import { getIo } from '../../../socket.js';
-import type { RedisAdapter } from '@socket.io/redis-adapter';
 
 describe('Socket.IO chat integration test', () => {
   const clients: [Socket, number][] = [];
@@ -345,7 +344,7 @@ describe('Socket.IO chat integration test', () => {
     await request(server)
       .post(`/api/chats/block/${testUsers[1]!.id}`)
       .set('Authorization', `Bearer ${testUsers[0]!.token}`)
-      .expect(200);
+      .expect(201);
 
     // Verify that User 1 has blocked User 2
     await request(server)
@@ -456,23 +455,24 @@ describe('Socket.IO chat integration test', () => {
 
   afterAll(async () => {
     // Disconnect clients
-    clients.forEach((c) => c[0].disconnect());
+    clients.forEach(([client]) => {
+      client.disconnect();
+      client.removeAllListeners();
+    });
+    clients.length = 0;
 
     // Close Socket.IO server
     const io = getIo();
     await io.close();
 
-    // Close Redis clients
-    const adapter: RedisAdapter = io.of('/').adapter as RedisAdapter;
-    await adapter.pubClient.quit();
-    await adapter.subClient.quit();
-
     // Close HTTP server
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.close();
 
     // Cleanup DB
+    await prisma.message.deleteMany();
     await prisma.userChat.deleteMany();
     await prisma.chat.deleteMany();
+    await prisma.userBlock.deleteMany();
     await prisma.user.deleteMany();
 
     // Disconnect Prisma

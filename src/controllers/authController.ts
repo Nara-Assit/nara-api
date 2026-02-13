@@ -36,7 +36,7 @@ const authController = {
         const { passwordHash: _, ...publicUser } = loggedInUser;
 
         return res
-          .status(403)
+          .status(201)
           .json({ success: false, message: 'Email not verified', data: { user: publicUser } });
       }
 
@@ -61,7 +61,7 @@ const authController = {
       // remove sensitive info before sending user data
       const { passwordHash: _, ...publicUser } = loggedInUser;
 
-      return res.status(200).json({
+      return res.status(201).json({
         success: true,
         message: 'Login successful',
         data: { accessToken, refreshToken, user: publicUser },

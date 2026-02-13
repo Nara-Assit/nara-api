@@ -11,7 +11,7 @@ import {
   getMessageById,
   getMessagesByChatId,
 } from '../repositories/messageRepo.js';
-import { getIo, handleUserLeaving } from '../socket.js';
+import { getIo } from '../socket.js';
 import { removeUserFromChat } from '../repositories/userRepo.js';
 
 const chatController = {
@@ -41,13 +41,10 @@ const chatController = {
       const deletedUser = await removeUserFromChat(userId, chatId);
 
       // send socket event to notify other members
-      getIo().to(`chat_${chatId}`).emit('user:leave', deletedUser);
+      getIo().to(`chat:${chatId}`).emit('user:leave', deletedUser);
 
-      // remove user from chat room in current IO server
-      handleUserLeaving({ chatId, userId });
-
-      // notify other IO servers about the user leaving the group
-      getIo().serverSideEmit('room:leave', { chatId, userId });
+      // remove user from chat room
+      getIo().in(`user:${userId}`).socketsLeave(`chat:${chatId}`);
 
       return res.status(200).json({ message: 'You have left the group successfully.' });
     } catch (error) {
@@ -111,7 +108,7 @@ const chatController = {
       });
 
       // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat_${chatId}`).emit('message:new', message);
+      getIo().to(`chat:${chatId}`).emit('message:new', message);
 
       return res.status(201).json({ message: 'Message sent successfully.' });
     } catch (error) {
@@ -132,7 +129,7 @@ const chatController = {
 
       const storedMessage = await getMessageById(messageId, chatId);
       if (!storedMessage) {
-        return res.status(404).json({ error: 'Message not found.' });
+        return res.status(200).json({ message: 'Message already deleted.' });
       }
 
       // if chat is private, only delete if the sender id is the same one that sent the message
@@ -143,6 +140,7 @@ const chatController = {
             .json({ error: 'You can only delete your own messages in private chats.' });
         }
       }
+
       // if chat is group, allow deletion by sender or any admin member
       else if (chat.type === ChatType.GROUP) {
         const isAdmin = chat.members.some(
@@ -150,7 +148,7 @@ const chatController = {
         );
         if (storedMessage.senderId !== senderId && !isAdmin) {
           return res.status(403).json({
-            error: 'You can only delete your own messages or you must be an admin in group chats.',
+            error: 'You can only delete your own messages if you are not an admin in group chats.',
           });
         }
       }
@@ -159,7 +157,7 @@ const chatController = {
       const deletedMessage = await deleteMessageById(messageId, chatId);
 
       // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat_${chatId}`).emit('message:deleted', deletedMessage);
+      getIo().to(`chat:${chatId}`).emit('message:deleted', deletedMessage);
 
       return res.status(200).json({ message: 'Message deleted successfully.' });
     } catch (error) {
@@ -192,12 +190,12 @@ const chatController = {
       // check if user is already blocked
       const isBlocked = await isUserBlocked(blockerId, blockedId);
       if (isBlocked) {
-        return res.status(400).json({ error: 'User is already blocked.' });
+        return res.status(200).json({ message: 'User is already blocked.' });
       }
 
       // block the user
       await blockUser(blockerId, blockedId);
-      return res.status(200).json({ message: 'User blocked successfully.' });
+      return res.status(201).json({ message: 'User blocked successfully.' });
     } catch (error) {
       next(error);
     }
@@ -215,7 +213,7 @@ const chatController = {
       // unblock the user, the method returns false if no block existed
       const unblockSuccessful = await unblockUser(blockerId, blockedId);
       if (!unblockSuccessful) {
-        return res.status(400).json({ error: 'User is not blocked.' });
+        return res.status(200).json({ message: 'User is already unblocked.' });
       }
 
       return res.status(200).json({ message: 'User unblocked successfully.' });

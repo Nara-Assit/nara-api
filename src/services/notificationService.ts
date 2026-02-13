@@ -1,35 +1,64 @@
 import firebase from './firebase.js';
 import { createNotificationForUsers } from '../repositories/notificationRepo.js';
-import type {
-  BackgroundNotification,
-  ForegroundNotification,
-} from '../types/NotificationMessage.js';
+import type { BackgroundNotification, NotificationData } from '../types/NotificationMessage.js';
 import { deleteFcmTokenByToken, getFcmTokenByUserIds } from '../repositories/fcmTokenRepo.js';
 import type { MulticastMessage } from 'firebase-admin/messaging';
+import { getIo, getUserStatus, USER_STATUS } from '../socket.js';
+import mapNotificationDataToFcm from '../util/mapNotificationDataToFcm.js';
 
-export async function sendBackgroundNotification(
-  backgroundNotification: BackgroundNotification,
+export async function sendNotification(
+  notification: NotificationData,
   userIds: [number, ...number[]]
 ) {
-  await sendNotification(backgroundNotification, userIds);
+  // store the notification in the database for all users
+  await createNotificationForUsers(notification, userIds);
+
+  // split the userIds into two lists, one for online users and one for offline users
+  // for online users, send the notification via socket.io
+  // for offline users, send the notification via Firebase Cloud Messaging if they are registered for it, otherwise skip sending the notification
+  const onlineUserIds: number[] = [];
+  const offlineUserIds: number[] = [];
+
+  for (const userId of userIds) {
+    if (getUserStatus(userId) === USER_STATUS.ONLINE) {
+      onlineUserIds.push(userId);
+    } else {
+      offlineUserIds.push(userId);
+    }
+  }
+
+  // for online users, store notifications in the database as read, and for offline users, store them as unread
+  if (onlineUserIds.length > 0) {
+    await sendNotificationToOnlineUsers(notification, onlineUserIds as [number, ...number[]]);
+  }
+  if (offlineUserIds.length > 0) {
+    await sendNotificationToOfflineUsers(
+      mapNotificationDataToFcm(notification),
+      offlineUserIds as [number, ...number[]]
+    );
+  }
 }
 
-export async function sendForegroundNotification(
-  foregroundNotification: ForegroundNotification,
+async function sendNotificationToOnlineUsers(
+  notification: NotificationData,
   userIds: [number, ...number[]]
 ) {
-  await sendNotification(foregroundNotification, userIds);
+  getIo()
+    .to(userIds.map((id) => `user:${id}`))
+    .emit('notification:new', notification);
 }
 
-async function sendNotification(
-  notification: BackgroundNotification | ForegroundNotification,
+async function sendNotificationToOfflineUsers(
+  notification: BackgroundNotification,
   userIds: [number, ...number[]]
 ) {
   // Find the registration tokens for the given user IDs
-  const fcmTokensStrings = await getFcmTokensStrings(userIds);
+  const fcmTokensStrings = await getFcmTokensStrings(userIds as [number, ...number[]]);
 
-  // Store the notifications in the database for the specified users
-  await createNotificationForUsers(notification, userIds);
+  // skip sending notification if user hasn't registered any FCM tokens
+  if (fcmTokensStrings.length === 0) {
+    return;
+  }
 
   // Send the notification via Firebase Cloud Messaging
   const result = await sendFcmNotification(notification, fcmTokensStrings);
@@ -48,15 +77,12 @@ async function sendNotification(
 
 async function getFcmTokensStrings(userIds: [number, ...number[]]) {
   const fcmTokens = await getFcmTokenByUserIds(userIds);
-  if (fcmTokens.length === 0) {
-    throw new Error('No FCM tokens found for the given user IDs');
-  }
   const fcmTokensStrings = fcmTokens.map((token) => token.token);
   return fcmTokensStrings;
 }
 
 async function sendFcmNotification(
-  notification: BackgroundNotification | ForegroundNotification,
+  notification: BackgroundNotification,
   fcmTokensStrings: string[]
 ) {
   const fcmMessage: MulticastMessage = {

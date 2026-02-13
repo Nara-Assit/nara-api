@@ -27,6 +27,7 @@ secrets.env
 config.env
 test.env
 serviceAccountKey.json
+backend.crt
 
 # Logs
 logs

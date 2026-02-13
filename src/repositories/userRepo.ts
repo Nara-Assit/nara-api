@@ -18,7 +18,7 @@ export const createUser = async (data: CreateUserData) => {
 };
 
 export const updateUser = async (id: number, data: Partial<User>) => {
-  return await prisma.user.update({ where: { id }, data });
+  return await prisma.user.updateMany({ where: { id }, data });
 };
 
 export const getUserChatIds = async (userId: number): Promise<number[]> => {
@@ -46,4 +46,22 @@ export const removeUserFromChat = async (userId: number, chatId: number) => {
   });
 
   return deletedUser;
+};
+
+export const searchForUsersByName = async (name: string, page: number, limit: number) => {
+  const users = await prisma.user.findMany({
+    where: {
+      name: {
+        contains: name,
+        mode: 'insensitive',
+      },
+    },
+    omit: {
+      passwordHash: true,
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return users;
 };

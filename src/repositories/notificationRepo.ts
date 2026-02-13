@@ -1,16 +1,13 @@
 import prisma from '../db.js';
-import type {
-  BackgroundNotification,
-  ForegroundNotification,
-} from '../types/NotificationMessage.js';
+import type { NotificationData } from '../types/NotificationMessage.js';
 
 export const createNotificationForUsers = async (
-  notification: ForegroundNotification | BackgroundNotification,
+  notification: NotificationData,
   userIds: [number, ...number[]]
 ) => {
   await prisma.notification.create({
     data: {
-      payload: { ...notification },
+      ...notification,
       userNotifications: {
         create: userIds.map((id) => ({ userId: id })),
       },
