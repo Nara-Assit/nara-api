@@ -2,15 +2,17 @@ import { Router } from 'express';
 import chatController from '../controllers/chatController.js';
 import validateData from '../middleware/validationMiddleware.js';
 import { messageSchema } from '../schemas/messageSchema.js';
+import { CreateChatSchema, UpdateChatSchema } from '../schemas/chatSchema.js';
+import { IdParamSchema } from '../schemas/common.js';
 
 const chatRouter = Router();
 
 // Chat Routes
 chatRouter.get('/', chatController.getChats);
-chatRouter.patch('/:id', chatController.updateChat);
-chatRouter.post('/:id/members', chatController.addChatMember);
+chatRouter.patch('/:id', validateData(UpdateChatSchema), chatController.updateChat);
+chatRouter.post('/:id/members', validateData(IdParamSchema), chatController.addChatMember);
 chatRouter.post('/:id/add-favorite', chatController.addChatFavorite);
-chatRouter.post('/', chatController.createChat);
+chatRouter.post('/', validateData(CreateChatSchema), chatController.createChat);
 chatRouter.delete('/:id', chatController.deleteChat);
 chatRouter.post('/:id/leave-group', chatController.leaveGroup);
 

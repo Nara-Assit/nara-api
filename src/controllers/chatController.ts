@@ -1,9 +1,14 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types/express.js';
 import { blockUser, canInteract, isUserBlocked, unblockUser } from '../repositories/blocksRepo.js';
-import { getChatById } from '../repositories/chatRepo.js';
+import {
+  getChatById,
+  findPrivateChatBetween,
+  create,
+  deleteChatById,
+  updateChatActivity,
+  updateChat,
+} from '../repositories/chatRepo.js';
 import { ChatType } from '@prisma/client';
 import {
   createMessage,
@@ -12,20 +17,282 @@ import {
   getMessagesByChatId,
 } from '../repositories/messageRepo.js';
 import { getIo } from '../socket.js';
-import { removeUserFromChat } from '../repositories/userRepo.js';
+import {
+  removeUserFromChat,
+  addMember,
+  addManyMembers,
+  findChatMembership,
+  setUserChatFavorite,
+  getUserChats,
+} from '../repositories/userRepo.js';
+import type { CreateChatInput, UpdateChatInput } from '../schemas/chatSchema.js';
 
 const chatController = {
-  getChats: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+  getChats: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = parseInt(req.userId!, 10);
+      const isFavoriteOnly = req.query.favorite === 'true';
 
-  updateChat: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+      // 1. Fetch raw chat data from repository
+      const userChats = await getUserChats(userId, isFavoriteOnly);
 
-  addChatMember: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+      // 2. Format chats for the UI
+      const formattedChats = userChats.map((membership) => {
+        const { chat } = membership;
+        const lastMessage = chat.messages[0] || null;
 
-  addChatFavorite: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+        // Logic: If Private, the chat name is the "other" person's name
+        if (chat.type === 'PRIVATE') {
+          const otherMember = chat.members.find((m) => m.userId !== userId);
+          return {
+            id: chat.id,
+            type: chat.type,
+            name: otherMember?.user.name || 'Unknown User',
+            avatarUrl: otherMember?.user.profileImageUrl || null,
+            lastMessage: lastMessage?.text || null,
+            lastActivity: chat.lastActivity,
+            isFavorite: membership.isFavorite,
+          };
+        }
 
-  createChat: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+        // Logic: If Group, use the Chat's own metadata
+        return {
+          id: chat.id,
+          type: chat.type,
+          name: chat.name,
+          avatarUrl: chat.avatarUrl,
+          lastMessage: lastMessage?.text || null,
+          lastActivity: chat.lastActivity,
+          isFavorite: membership.isFavorite,
+        };
+      });
 
-  deleteChat: async (req: AuthRequest, res: Response, next: NextFunction) => {},
+      res.status(200).json({
+        success: true,
+        message: 'Chats retrieved successfully',
+        data: formattedChats,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  updateChat: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const chatId = parseInt(req.params.id!, 10);
+      const updateData: UpdateChatInput = req.body;
+      const currentUserId = parseInt(req.userId!, 10);
+
+      const requesterMembership = await findChatMembership(currentUserId, chatId, true);
+
+      if (!requesterMembership) {
+        return res.status(404).json({
+          success: false,
+          message: 'Chat not found or you are not a member',
+        });
+      }
+
+      if (requesterMembership.chat.type !== 'GROUP') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot update details of a private chat',
+        });
+      }
+
+      if (requesterMembership.role !== 'ADMIN') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only admins can update group settings',
+        });
+      }
+
+      // 4. Perform the Update
+      // We only update fields that are provided (undefined fields are ignored by Prisma if logically handled,
+      // but explicit objects are cleaner).
+
+      const updatedChat = await updateChat(chatId, updateData);
+
+      res.status(200).json({
+        success: true,
+        message: 'Group chat updated successfully',
+        data: updatedChat,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  addChatMember: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const chatId = parseInt(req.params.id!, 10);
+      const { targetUserId } = req.body;
+      const currentUserId = parseInt(req.userId!, 10);
+
+      // 2. Fetch Requester's Membership & Chat Details
+      // We need to know: Is the requester in this chat? Are they an Admin? Is it a Group?
+      const requesterMembership = await findChatMembership(currentUserId, chatId, true);
+
+      // 3. Validation Checks
+
+      // Check A: Does chat exist and is requester a member?
+      if (!requesterMembership) {
+        return res.status(404).json({ success: false, message: 'Chat not found or access denied' });
+      }
+
+      // Check B: Is it a Group Chat?
+      if (requesterMembership.chat.type === 'PRIVATE') {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Cannot manually add members to a private chat' });
+      }
+
+      // Check C: Is requester an Admin?
+      // (Remove this block if regular members are allowed to add people)
+      if (requesterMembership.role !== 'ADMIN') {
+        return res
+          .status(403)
+          .json({ success: false, message: 'Only admins can add members to this group' });
+      }
+
+      // 4. Check if Target User is already a member
+      const existingMember = await findChatMembership(targetUserId, chatId);
+      if (existingMember) {
+        return res
+          .status(409)
+          .json({ success: false, message: 'User is already a member of this chat' });
+      }
+
+      const [newMember] = await Promise.all([
+        addMember(chatId, targetUserId, 'Member'),
+        updateChatActivity(chatId),
+      ]);
+      res.status(200).json({
+        success: true,
+        message: 'Member added successfully',
+        data: newMember,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  addChatFavorite: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const chatId = parseInt(req.params.id!, 10);
+      const currentUserId = parseInt(req.userId!, 10);
+
+      const updatedUserChat = await setUserChatFavorite(currentUserId, chatId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat marked as favorite successfully',
+        data: updatedUserChat,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  createChat: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const chatData: CreateChatInput = req.body;
+      const currentUserId = parseInt(req.userId!, 10);
+
+      if (chatData.type === 'PRIVATE') {
+        const { targetUserId } = chatData;
+
+        // A.1 Check if chat already exists
+        const existingChat = await findPrivateChatBetween(currentUserId, targetUserId);
+        if (existingChat) {
+          return res.status(200).json({
+            success: true,
+            message: 'Chat retrieved successfully',
+            data: existingChat,
+          });
+        }
+
+        // A.2 Create the Chat
+        // This creates a generic room.
+        const newChat = await create({ type: 'PRIVATE' });
+
+        // A.3 Add Members (Parallel for performance)
+        // Since it's private, both are just 'Member'
+        await Promise.all([
+          addMember(newChat.id, currentUserId, 'Member'),
+          addMember(newChat.id, targetUserId, 'Member'),
+        ]);
+
+        res.status(201).json({
+          success: true,
+          message: 'Chat created successfully',
+          data: newChat,
+        });
+      } else if (chatData.type === 'GROUP') {
+        const newGroup = await create({
+          type: 'GROUP',
+          name: chatData.name,
+          description: chatData.description ?? null,
+          avatarUrl: chatData.avatarUrl ?? null,
+        });
+
+        // B.2 Add Creator as Admin
+        await addMember(newGroup.id, currentUserId, 'Admin');
+
+        // B.3 Add other Members (Bulk Operation)
+        if (chatData.members.length > 0) {
+          await addManyMembers(newGroup.id, chatData.members, 'Member');
+        }
+
+        res.status(201).json({
+          success: true,
+          message: 'Chat group created successfully',
+          data: newGroup,
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  deleteChat: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const chatId = parseInt(req.params.id!, 10);
+      const currentUserId = parseInt(req.userId!, 10);
+
+      // 1. Check if the user is a member of this chat and get their role
+      const userChat = await findChatMembership(currentUserId, chatId, true);
+
+      // If no relationship exists, the chat doesn't exist or the user isn't in it
+      if (!userChat) {
+        // Using 404 to avoid leaking existence of chats the user isn't part of
+        return res.status(404).json({
+          success: false,
+          message: 'Chat not found or access denied',
+        });
+      }
+
+      // 2. Authorization Checks based on Chat Type
+      if (userChat.chat.type === 'GROUP') {
+        // For groups, only Admins can delete the entire chat
+        if (userChat.role !== 'ADMIN') {
+          return res.status(403).json({
+            success: false,
+            message: 'Only admins can delete this group',
+          });
+        }
+      }
+      // For PRIVATE chats, standard logic often allows either party to delete the conversation.
+      // NOTE: This permanently deletes the history for the other user as well.
+      await deleteChatById(chatId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 
   leaveGroup: async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
