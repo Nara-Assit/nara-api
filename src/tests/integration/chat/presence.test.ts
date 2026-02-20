@@ -3,6 +3,10 @@ import { io as Client, Socket as ClientSocket } from 'socket.io-client';
 import { jest } from '@jest/globals';
 import type { Socket } from 'socket.io';
 import type { NextFunction } from 'express';
+import {
+  CLIENT_EMITTED_EVENTS,
+  SERVER_EMITTED_EVENTS,
+} from '../../../config/constants/socketConstants.js';
 
 const getUserChatIds = jest.fn(() => []);
 const updateUser = jest.fn();
@@ -93,8 +97,8 @@ describe('Presence realtime updates', () => {
 
     const handler = jest.fn();
 
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2, 3] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2, 3] });
 
     await delay();
 
@@ -111,8 +115,8 @@ describe('Presence realtime updates', () => {
 
     const handler = jest.fn();
 
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2, 3] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2, 3] });
 
     await delay();
 
@@ -127,8 +131,8 @@ describe('Presence realtime updates', () => {
 
     const handler = jest.fn();
 
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2, 3] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2, 3] });
 
     client2 = await connectClient(2);
     client3 = await connectClient(3);
@@ -145,8 +149,8 @@ describe('Presence realtime updates', () => {
     client3 = await connectClient(3);
 
     const handler = jest.fn();
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2, 3] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2, 3] });
 
     await delay();
 
@@ -166,8 +170,8 @@ describe('Presence realtime updates', () => {
 
     const handler = jest.fn();
 
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2] });
 
     await delay();
 
@@ -187,12 +191,12 @@ describe('Presence realtime updates', () => {
 
     const handler = jest.fn();
 
-    client1.on('presence:update', handler);
-    client1.emit('presence:subscribe', { userIds: [2, 3] });
+    client1.on(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, handler);
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, { userIds: [2, 3] });
 
     await delay();
 
-    client1.emit('presence:unsubscribe', { userIds: [3] });
+    client1.emit(CLIENT_EMITTED_EVENTS.PRESENCE_UNSUBSCRIBE, { userIds: [3] });
 
     client3.disconnect();
 

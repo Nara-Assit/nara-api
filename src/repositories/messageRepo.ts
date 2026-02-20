@@ -8,9 +8,31 @@ export const createMessage = async (chatMessage: ChatMessage) => {
   return message;
 };
 
-export const getMessagesByChatId = async (chatId: number, page = 1, limit = 20) => {
+export const getMessagesByChatId = async (
+  chatId: number,
+  page = 1,
+  limit = 20,
+  includeSender = false
+) => {
+  const includeObject = includeSender
+    ? {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            profileImageUrl: true,
+          },
+        },
+      }
+    : {};
+
   const messages = await prisma.message.findMany({
     where: { chatId },
+    omit: {
+      senderId: true,
+      chatId: true,
+    },
+    include: includeObject,
     orderBy: { createdAt: 'desc' },
     skip: (page - 1) * limit,
     take: limit,

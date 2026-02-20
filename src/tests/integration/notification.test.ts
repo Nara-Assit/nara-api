@@ -7,6 +7,7 @@ import { RoleType, type User } from '@prisma/client';
 import { createUser } from '../../repositories/userRepo.js';
 import prisma from '../../db.js';
 import { NotificationType, type NotificationData } from '../../types/NotificationMessage.js';
+import { SERVER_EMITTED_EVENTS } from '../../config/constants/socketConstants.js';
 
 const verifySocketToken = jest.fn((socket: Socket, next: NextFunction) => {
   socket.data.userId = socket.handshake.auth.userId;
@@ -167,7 +168,7 @@ describe('Notification Service Integration Tests', () => {
 
     const handler = jest.fn();
 
-    client1.on('notification:new', handler);
+    client1.on(SERVER_EMITTED_EVENTS.NEW_NOTIFICATION, handler);
 
     await sendNotification(notificationMessage, [users[0]!.id]);
 
@@ -186,8 +187,8 @@ describe('Notification Service Integration Tests', () => {
 
     const handler = jest.fn();
 
-    client1.on('notification:new', handler);
-    client2.on('notification:new', handler);
+    client1.on(SERVER_EMITTED_EVENTS.NEW_NOTIFICATION, handler);
+    client2.on(SERVER_EMITTED_EVENTS.NEW_NOTIFICATION, handler);
 
     await sendNotification(notificationMessage, [users[0]!.id, users[1]!.id]);
 
@@ -210,8 +211,8 @@ describe('Notification Service Integration Tests', () => {
 
     const handler = jest.fn();
 
-    client1.on('notification:new', handler);
-    client2.on('notification:new', handler);
+    client1.on(SERVER_EMITTED_EVENTS.NEW_NOTIFICATION, handler);
+    client2.on(SERVER_EMITTED_EVENTS.NEW_NOTIFICATION, handler);
 
     await sendNotification(notificationMessage, [users[0]!.id]);
 

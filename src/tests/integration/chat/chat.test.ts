@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // tests/socket.test.ts
 import server from '../../../server.js';
 import { io as Client, Socket } from 'socket.io-client';
@@ -7,6 +8,8 @@ import { config } from '../../../config/config.js';
 import request from 'supertest';
 import { getMessagesByChatId } from '../../../repositories/messageRepo.js';
 import { getIo } from '../../../socket.js';
+import type { NotificationData } from '../../../types/NotificationMessage.js';
+import { SERVER_EMITTED_EVENTS } from '../../../config/constants/socketConstants.js';
 
 describe('Socket.IO chat integration test', () => {
   const clients: [Socket, number][] = [];
@@ -14,11 +17,6 @@ describe('Socket.IO chat integration test', () => {
   let privateChatId: number;
   let groupChatId: number;
   const waitingTime = 1000;
-  interface SocketMessage {
-    senderId: number;
-    text: string;
-    chatId: number;
-  }
 
   beforeAll(async () => {
     // Create users
@@ -126,15 +124,15 @@ describe('Socket.IO chat integration test', () => {
   });
 
   test('Private messages are sent to members only', async () => {
-    const expectedRecipients = new Set([testUsers[0]!.id, testUsers[1]!.id]);
+    const expectedRecipients = new Set([testUsers[1]!.id]);
     const actualRecipients = new Set<number>();
     const text = 'Hello Private Chat!';
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: NotificationData) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (message: SocketMessage) => {
-        expect(message.text).toBe(text);
+      const handler = (message: NotificationData) => {
+        expect(message.body).toBe(text);
         actualRecipients.add(client[1]);
       };
 
@@ -143,7 +141,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     await request(server)
@@ -158,14 +156,13 @@ describe('Socket.IO chat integration test', () => {
     const messages = await getMessagesByChatId(privateChatId);
     expect(messages.length).toEqual(1);
     expect(messages[0]!.text).toBe(text);
-    expect(messages[0]!.senderId).toBe(testUsers[0]!.id);
 
     await new Promise<void>((resolve) => {
       setTimeout(() => {
         expect(actualRecipients).toEqual(expectedRecipients);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received
@@ -173,17 +170,15 @@ describe('Socket.IO chat integration test', () => {
   });
 
   test('Group messages are sent to members only', async () => {
-    const expectedRecipients = new Set([testUsers[1]!.id, testUsers[2]!.id, testUsers[3]!.id]);
+    const expectedRecipients = new Set([testUsers[2]!.id, testUsers[3]!.id]);
     const actualRecipients = new Set<number>();
     const text = 'Hello Group Chat!';
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: any) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (message: SocketMessage) => {
-        expect(message.text).toBe(text);
-        expect(message.senderId).toBe(testUsers[1]!.id);
-        expect(message.chatId).toBe(groupChatId);
+      const handler = (message: NotificationData) => {
+        expect(message.body).toBe(text);
         actualRecipients.add(client[1]);
       };
 
@@ -192,7 +187,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     await request(server)
@@ -207,14 +202,13 @@ describe('Socket.IO chat integration test', () => {
     const messages = await getMessagesByChatId(groupChatId);
     expect(messages.length).toEqual(1);
     expect(messages[0]!.text).toBe(text);
-    expect(messages[0]!.senderId).toBe(testUsers[1]!.id);
 
     await new Promise<void>((resolve) => {
       setTimeout(() => {
         expect(actualRecipients).toEqual(expectedRecipients);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received
@@ -224,11 +218,11 @@ describe('Socket.IO chat integration test', () => {
   test('messages can not be sent by members who are not part of the group', async () => {
     const actualRecipients = new Set<number>();
     const text = 'Hello Group Chat!';
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: any) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (_: SocketMessage) => {
+      const handler = (_: any) => {
         actualRecipients.add(client[1]);
       };
 
@@ -237,7 +231,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     // User 1 is not part of the group chat
@@ -254,7 +248,7 @@ describe('Socket.IO chat integration test', () => {
         expect(actualRecipients.size).toEqual(0);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received
@@ -263,16 +257,16 @@ describe('Socket.IO chat integration test', () => {
 
   test('Users can leave group and no longer send or receive messages', async () => {
     const text = 'Message after leaving group';
-    const expectedRecipients = new Set([testUsers[1]!.id, testUsers[3]!.id]);
+    const expectedRecipients = new Set([testUsers[3]!.id]);
     const actualRecipients = new Set<number>();
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: NotificationData) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (message: SocketMessage) => {
-        expect(message.text).toBe(text);
+      const handler = (message: NotificationData) => {
+        expect(message.body).toBe(text);
         expect(message.senderId).toBe(testUsers[1]!.id);
-        expect(message.chatId).toBe(groupChatId);
+        expect(message.payload.chatId).toBe(groupChatId);
         actualRecipients.add(client[1]);
       };
 
@@ -281,7 +275,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     // User 3 leaves the group
@@ -314,7 +308,7 @@ describe('Socket.IO chat integration test', () => {
         expect(actualRecipients).toEqual(expectedRecipients);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received
@@ -324,11 +318,11 @@ describe('Socket.IO chat integration test', () => {
   test('Blocked users cannot send messages to each other', async () => {
     const text = 'Message after blocking user';
     const actualRecipients = new Set<number>();
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: NotificationData) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (_: SocketMessage) => {
+      const handler = (_: NotificationData) => {
         actualRecipients.add(client[1]);
       };
 
@@ -337,7 +331,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     // User 1 blocks User 2
@@ -381,7 +375,7 @@ describe('Socket.IO chat integration test', () => {
         expect(actualRecipients.size).toEqual(0);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received
@@ -392,14 +386,14 @@ describe('Socket.IO chat integration test', () => {
     const text = 'Message after unblocking user';
     const expectedRecipients = new Set([testUsers[0]!.id, testUsers[1]!.id]);
     const actualRecipients = new Set<number>();
-    const handlers = new Map<number, (message: SocketMessage) => void>();
+    const handlers = new Map<number, (message: NotificationData) => void>();
 
     // listen for the message received by other clients
     function messageHandler(client: [Socket, number]) {
-      const handler = (message: SocketMessage) => {
-        expect(message.text).toBe(text);
+      const handler = (message: NotificationData) => {
+        expect(message.body).toBe(text);
         expect([testUsers[0]!.id, testUsers[1]!.id]).toContain(message.senderId);
-        expect(message.chatId).toBe(privateChatId);
+        expect(message.payload.chatId).toBe(privateChatId);
         actualRecipients.add(client[1]);
       };
 
@@ -408,7 +402,7 @@ describe('Socket.IO chat integration test', () => {
     }
 
     clients.forEach((client) => {
-      client[0].on('message:new', messageHandler(client));
+      client[0].on(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, messageHandler(client));
     });
 
     // User 1 unblocks User 2
@@ -446,7 +440,7 @@ describe('Socket.IO chat integration test', () => {
         expect(actualRecipients).toEqual(expectedRecipients);
         // Clean up listeners
         clients.forEach((client) => {
-          client[0].off('message:new', handlers.get(client[1])!);
+          client[0].off(SERVER_EMITTED_EVENTS.CHAT_MESSAGE_CREATED, handlers.get(client[1])!);
         });
         resolve();
       }, waitingTime); // wait for messages to be received

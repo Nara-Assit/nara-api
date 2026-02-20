@@ -8,15 +8,21 @@ import {
   deleteChatById,
   updateChatActivity,
   updateChat,
+  isAdminOfChat,
+  isChatMember,
+  findChatMembers,
+  findChatMembersCount,
+  findChatAdminsCount,
+  findAChatMember,
+  promoteToAdmin,
 } from '../repositories/chatRepo.js';
-import { ChatType } from '@prisma/client';
+import { ChatType, Prisma } from '@prisma/client';
 import {
   createMessage,
   deleteMessageById,
   getMessageById,
   getMessagesByChatId,
 } from '../repositories/messageRepo.js';
-import { getIo } from '../socket.js';
 import {
   removeUserFromChat,
   addMember,
@@ -24,8 +30,22 @@ import {
   findChatMembership,
   setUserChatFavorite,
   getUserChats,
+  getUserById,
 } from '../repositories/userRepo.js';
 import type { CreateChatInput, UpdateChatInput } from '../schemas/chatSchema.js';
+import {
+  emitChatCreated,
+  emitChatDeleted,
+  emitChatMemberAdded,
+  emitChatMessageDeleted,
+  emitChatUpdated,
+  emitUserLeftChat,
+  makeUsersJoinChat,
+  makeUsersLeaveChat,
+  notifyChatMessage,
+} from '../services/socketService.js';
+import { sendNotification } from '../services/notificationService.js';
+import { NotificationType, type MessageNotification } from '../types/NotificationMessage.js';
 
 const chatController = {
   getChats: async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -109,8 +129,9 @@ const chatController = {
       // 4. Perform the Update
       // We only update fields that are provided (undefined fields are ignored by Prisma if logically handled,
       // but explicit objects are cleaner).
-
       const updatedChat = await updateChat(chatId, updateData);
+
+      emitChatUpdated(chatId, updatedChat, currentUserId);
 
       res.status(200).json({
         success: true,
@@ -166,6 +187,9 @@ const chatController = {
         addMember(chatId, targetUserId, 'Member'),
         updateChatActivity(chatId),
       ]);
+
+      emitChatMemberAdded(chatId, newMember, currentUserId);
+
       res.status(200).json({
         success: true,
         message: 'Member added successfully',
@@ -222,6 +246,9 @@ const chatController = {
           addMember(newChat.id, targetUserId, 'Member'),
         ]);
 
+        makeUsersJoinChat([currentUserId, targetUserId], newChat.id);
+        emitChatCreated(newChat, currentUserId);
+
         res.status(201).json({
           success: true,
           message: 'Chat created successfully',
@@ -242,6 +269,9 @@ const chatController = {
         if (chatData.members.length > 0) {
           await addManyMembers(newGroup.id, chatData.members, 'Member');
         }
+
+        makeUsersJoinChat(chatData.members, newGroup.id);
+        emitChatCreated(newGroup, currentUserId);
 
         res.status(201).json({
           success: true,
@@ -285,6 +315,8 @@ const chatController = {
       // NOTE: This permanently deletes the history for the other user as well.
       await deleteChatById(chatId);
 
+      emitChatDeleted(chatId, currentUserId);
+
       res.status(200).json({
         success: true,
         message: 'Chat deleted successfully',
@@ -300,21 +332,37 @@ const chatController = {
       const chatId = parseInt(req.params.id!, 10);
 
       const chat = await getChatById(chatId);
-      if (!chat || chat.type !== ChatType.GROUP) {
-        return res.status(404).json({ error: 'Group chat not found.' });
+      if (!chat) {
+        return res.status(404).json({ error: 'Group not found.' });
+      }
+      if (chat.type !== ChatType.GROUP) {
+        return res.status(400).json({ error: 'Cannot leave a private chat.' });
       }
 
-      // delete user from chat members in database
-      const deletedUser = await removeUserFromChat(userId, chatId);
+      const chatDeletedUser = await removeUserFromChat(userId, chatId);
+      const membersCount = await findChatMembersCount(chatId);
 
-      // send socket event to notify other members
-      getIo().to(`chat:${chatId}`).emit('user:leave', deletedUser);
+      if (membersCount === 0) {
+        await deleteChatById(chatId);
+        emitChatDeleted(chatId, userId);
+      } else {
+        const adminsCount = await findChatAdminsCount(chatId);
+        if (adminsCount === 0) {
+          const newAdmin = await findAChatMember(chatId);
+          if (newAdmin) {
+            await promoteToAdmin(newAdmin.userId, chatId);
+          }
+        }
+      }
 
-      // remove user from chat room
-      getIo().in(`user:${userId}`).socketsLeave(`chat:${chatId}`);
+      makeUsersLeaveChat([userId], chatId);
+      emitUserLeftChat(chatDeletedUser);
 
-      return res.status(200).json({ message: 'You have left the group successfully.' });
+      return res.status(200).json({ message: 'Left successfully.' });
     } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ error: 'Not a member.' });
+      }
       next(error);
     }
   },
@@ -330,7 +378,8 @@ const chatController = {
         return res.status(404).json({ error: 'Chat not found.' });
       }
 
-      const messages = await getMessagesByChatId(chatId, page, limit);
+      const includeSender = chat.type === ChatType.GROUP;
+      const messages = await getMessagesByChatId(chatId, page, limit, includeSender);
       return res.status(200).json({ messages });
     } catch (error) {
       next(error);
@@ -343,26 +392,30 @@ const chatController = {
       const senderId = parseInt(req.userId!, 10);
       const chatId = parseInt(req.params.id!, 10);
       const { text } = req.body;
-      const chat = await getChatById(chatId, { includeMembers: true });
+      const chat = await getChatById(chatId);
 
       if (!chat) {
         return res.status(404).json({ error: 'Chat not found.' });
       }
 
       // check if sender is in chat members
-      const isMember = chat.members.some((member) => member.userId === senderId);
+      const isMember = await isChatMember(chatId, senderId);
       if (!isMember) {
         return res.status(403).json({ error: 'You are not a member of this chat.' });
       }
 
+      const chatMembers = await findChatMembers(chatId);
+
       // if chat is private and sender is blocked by recipient, prevent message creation
       // if chat is group, allow message creation even some members have blocked the sender
       if (chat.type === ChatType.PRIVATE) {
-        const recipient = chat.members.find((member) => member.userId !== senderId);
+        const recipient = chatMembers.find((member) => member.userId !== senderId);
         if (recipient) {
           const canInteractResult = await canInteract(recipient.userId, senderId);
           if (!canInteractResult) {
-            return res.status(403).json({ error: 'You are blocked by the recipient.' });
+            return res.status(403).json({
+              error: "Can't send message to this user, one of you has blocked the other.",
+            });
           }
         }
       }
@@ -374,8 +427,27 @@ const chatController = {
         text,
       });
 
-      // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat:${chatId}`).emit('message:new', message);
+      const senderName = (await getUserById(senderId))?.name ?? 'Unknown User';
+
+      const messageNotification: MessageNotification = {
+        body: text,
+        title: chat.type === ChatType.PRIVATE ? senderName : chat.name || 'New message',
+        type: NotificationType.CHAT,
+        senderId,
+        payload: {
+          chatId: chat.id,
+          messageId: message.id,
+          senderName,
+        },
+      };
+
+      await sendNotification(
+        messageNotification,
+        chatMembers
+          .filter((member) => member.userId !== senderId)
+          .map((member) => member.userId) as [number, ...number[]],
+        () => notifyChatMessage(messageNotification, senderId)
+      );
 
       return res.status(201).json({ message: 'Message sent successfully.' });
     } catch (error) {
@@ -389,7 +461,7 @@ const chatController = {
       const chatId = parseInt(req.params.id!, 10);
       const messageId = parseInt(req.params.messageId!, 10);
 
-      const chat = await getChatById(chatId, { includeMembers: true });
+      const chat = await getChatById(chatId);
       if (!chat) {
         return res.status(404).json({ error: 'Chat not found.' });
       }
@@ -410,9 +482,7 @@ const chatController = {
 
       // if chat is group, allow deletion by sender or any admin member
       else if (chat.type === ChatType.GROUP) {
-        const isAdmin = chat.members.some(
-          (member) => member.userId === senderId && member.role === 'ADMIN'
-        );
+        const isAdmin = await isAdminOfChat(senderId, chatId);
         if (storedMessage.senderId !== senderId && !isAdmin) {
           return res.status(403).json({
             error: 'You can only delete your own messages if you are not an admin in group chats.',
@@ -423,11 +493,13 @@ const chatController = {
       // delete the message from the database
       const deletedMessage = await deleteMessageById(messageId, chatId);
 
-      // send message via socket in real-time to chat members (handled in socket.io layer)
-      getIo().to(`chat:${chatId}`).emit('message:deleted', deletedMessage);
+      emitChatMessageDeleted(deletedMessage, senderId);
 
       return res.status(200).json({ message: 'Message deleted successfully.' });
     } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ error: 'Message not found or already deleted.' });
+      }
       next(error);
     }
   },
@@ -454,16 +526,18 @@ const chatController = {
     }
 
     try {
-      // check if user is already blocked
-      const isBlocked = await isUserBlocked(blockerId, blockedId);
-      if (isBlocked) {
-        return res.status(200).json({ message: 'User is already blocked.' });
-      }
-
       // block the user
       await blockUser(blockerId, blockedId);
       return res.status(201).json({ message: 'User blocked successfully.' });
     } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          return res.status(200).json({ message: 'User is already blocked.' });
+        }
+        if (error.code === 'P2003') {
+          return res.status(404).json({ message: 'User not found.' });
+        }
+      }
       next(error);
     }
   },

@@ -15,6 +15,14 @@ export interface NotificationData {
   senderId: number | null;
 }
 
+export interface MessageNotification extends NotificationData {
+  payload: {
+    chatId: number;
+    messageId: number;
+    senderName: string;
+  };
+}
+
 export interface BackgroundNotification {
   notification: {
     title: string;

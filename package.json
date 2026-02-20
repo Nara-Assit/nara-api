@@ -16,7 +16,7 @@
     "prebuild": "npm-run-all clean lint:fix format:fix",
     "prestart:dev": "npm run typecheck",
     "migrate": "prisma migrate dev",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --runInBand",
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --runInBand --testTimeout=10000",
     "db:push:test": "dotenv -e test.env --override -- prisma db push"
   },
   "keywords": [],

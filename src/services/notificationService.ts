@@ -3,12 +3,17 @@ import { createNotificationForUsers } from '../repositories/notificationRepo.js'
 import type { BackgroundNotification, NotificationData } from '../types/NotificationMessage.js';
 import { deleteFcmTokenByToken, getFcmTokenByUserIds } from '../repositories/fcmTokenRepo.js';
 import type { MulticastMessage } from 'firebase-admin/messaging';
-import { getIo, getUserStatus, USER_STATUS } from '../socket.js';
+import { USER_STATUS } from '../socket.js';
+import { notifyUsers, getUserStatus } from './socketService.js';
 import mapNotificationDataToFcm from '../util/mapNotificationDataToFcm.js';
 
+// takes an optional socketFunction parameter that will be called instead of the default function to send notifications to online users
+// this is useful for cases where there is a more efficient way of sending the notification to online users
+// for example, when sending a notification to all members of a chat, we can emit the notification to the chat room instead of emitting it to each user in the chat individually
 export async function sendNotification(
   notification: NotificationData,
-  userIds: [number, ...number[]]
+  userIds: [number, ...number[]],
+  socketFunction?: () => void
 ) {
   // store the notification in the database for all users
   await createNotificationForUsers(notification, userIds);
@@ -29,7 +34,11 @@ export async function sendNotification(
 
   // for online users, store notifications in the database as read, and for offline users, store them as unread
   if (onlineUserIds.length > 0) {
-    await sendNotificationToOnlineUsers(notification, onlineUserIds as [number, ...number[]]);
+    if (socketFunction) {
+      await socketFunction();
+    } else {
+      await notifyUsers(notification, onlineUserIds as [number, ...number[]]);
+    }
   }
   if (offlineUserIds.length > 0) {
     await sendNotificationToOfflineUsers(
@@ -37,15 +46,6 @@ export async function sendNotification(
       offlineUserIds as [number, ...number[]]
     );
   }
-}
-
-async function sendNotificationToOnlineUsers(
-  notification: NotificationData,
-  userIds: [number, ...number[]]
-) {
-  getIo()
-    .to(userIds.map((id) => `user:${id}`))
-    .emit('notification:new', notification);
 }
 
 async function sendNotificationToOfflineUsers(

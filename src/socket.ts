@@ -2,6 +2,11 @@ import { Socket, Server as SocketServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { verifySocketToken } from './middleware/socketAuthMiddleware.js';
 import { getUserChatIds, updateUser } from './repositories/userRepo.js';
+import { getUserStatus } from './services/socketService.js';
+import {
+  CLIENT_EMITTED_EVENTS,
+  SERVER_EMITTED_EVENTS,
+} from './config/constants/socketConstants.js';
 
 let io: SocketServer;
 
@@ -20,7 +25,9 @@ export function initializeSocket(server: HttpServer) {
 
     if (getUserStatus(userId) === USER_STATUS.OFFLINE) {
       // Notify other users about this user's presence update
-      io.to(`presence:${userId}`).emit('presence:update', [{ userId, status: USER_STATUS.ONLINE }]);
+      io.to(`presence:${userId}`).emit(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, [
+        { userId, status: USER_STATUS.ONLINE },
+      ]);
     }
 
     socket.join(`user:${userId}`);
@@ -36,7 +43,7 @@ export function initializeSocket(server: HttpServer) {
       // Check if the user no longer has any active sockets before marking them as offline
       if (getUserStatus(userId) === USER_STATUS.OFFLINE) {
         // Notify other users about this user's presence update
-        io.to(`presence:${userId}`).emit('presence:update', [
+        io.to(`presence:${userId}`).emit(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, [
           {
             userId,
             status: USER_STATUS.OFFLINE,
@@ -49,7 +56,7 @@ export function initializeSocket(server: HttpServer) {
     });
 
     // handling subscribing to other users presence updates
-    socket.on('presence:subscribe', (data) => {
+    socket.on(CLIENT_EMITTED_EVENTS.PRESENCE_SUBSCRIBE, (data) => {
       const { userIds } = data; // array of userIds to subscribe to
 
       const userStatusUpdates = userIds.map((id: number) => {
@@ -61,11 +68,11 @@ export function initializeSocket(server: HttpServer) {
         };
       });
 
-      socket.emit('presence:update', userStatusUpdates);
+      socket.emit(SERVER_EMITTED_EVENTS.PRESENCE_UPDATE, userStatusUpdates);
     });
 
     // handling unsubscribing from other users presence updates
-    socket.on('presence:unsubscribe', (data) => {
+    socket.on(CLIENT_EMITTED_EVENTS.PRESENCE_UNSUBSCRIBE, (data) => {
       const { userIds } = data; // array of userIds to unsubscribe from
       for (const id of userIds) {
         socket.leave(`presence:${id}`);
@@ -79,9 +86,4 @@ export function getIo(): SocketServer {
     throw new Error('Socket.io not initialized!');
   }
   return io;
-}
-
-export function getUserStatus(userId: number): USER_STATUS {
-  const userSocketCount = io.sockets.adapter.rooms.get(`user:${userId}`)?.size ?? 0;
-  return userSocketCount > 0 ? USER_STATUS.ONLINE : USER_STATUS.OFFLINE;
 }
